@@ -10,7 +10,7 @@
   "scripts": {
     "test": "mocha -R spec --ui bdd",
     "cover": "istanbul cover _mocha",
-    "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | coveralls"
+    "coveralls": "npm run cover -- --report lcovonly && cat ./coverage/lcov.info | bash <(curl -s https://codecov.io/bash)"
   },
   "files": [
     "index.js"
@@ -28,6 +28,7 @@
   "devDependencies": {
     "chai": "^4.2.0",
     "coveralls": "^3.0.11",
+    "codecov": "^3.7.0",
     "istanbul": "^0.4.3",
     "mocha": "^7.1.1",
     "mocha-lcov-reporter": "^1.2.0",
