@@ -38,8 +38,8 @@ cronitor.run("My auth key is used to authenticate requests")
 ```javascript
 var Cronitor = require('cronitor')
 
-// instantiate with a monitorApiKey (https://cronitor.io/settings#account)
-const cronitor = new Cronitor({monitorApiKey: 'xxxxxx'})
+// instantiate with a apiKey (https://cronitor.io/settings#account)
+const cronitor = new Cronitor({apiKey: 'xxxxxx'})
 
 // sugar syntax for creating a new cron monitor
 cronitor.createCron({
@@ -87,7 +87,7 @@ cronitor.create({
 ```javascript
 
 var Cronitor = require('cronitor')
-const cronitor = new Cronitor({monitorApiKey: 'xxxxxx', code: 'd3x0c1'})
+const cronitor = new Cronitor({apiKey: 'xxxxxx', code: 'd3x0c1'})
 
 // Update existing attributes on a monitor
 cronitor.update({name: 'Midnight UTC DB Backup'}).then((monitor) => {
@@ -126,7 +126,7 @@ Set up your machine:
 Make sure the tests pass:
 
     npm test
-    
+
 Make your change. Add tests for your change. Make the tests pass:
 
     npm test

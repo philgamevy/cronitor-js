@@ -5,19 +5,12 @@ var axios = require("axios")
 var MONITOR_API_URL = "https://cronitor.io/v3/monitors"
 var PING_API_URL = "https://cronitor.link"
 
-function Cronitor(options) {
+
+function Monitor(options) {
   options = {...options}
-  if (!options.monitorApiKey && !options.code)
-    throw Error("You must supply a monitorCode or monitorApiKey to initialize cronitor.")
-
-  this.monitorCode = options.code || null
-  this.monitorApiKey = options.monitorApiKey || null
-  this.authKey = options.authKey || null
-
-  axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.monitorApiKey + ':').toString('base64')
+  this.apiKey = options.apiKey || null
+  axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
-
-
 
 /****
 * Create new monitor
@@ -26,8 +19,7 @@ function Cronitor(options) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Cronitor.prototype.create = function(obj) {
-  validateMonitorApiKey.call(this)
+Monitor.prototype.create = withApiValidation(function(obj) {
   return axios
     .post(MONITOR_API_URL, obj)
     .then((res) => {
@@ -37,7 +29,7 @@ Cronitor.prototype.create = function(obj) {
     .catch((err) => {
       return err.response
     })
-}
+})
 
 /****
 * Create a new cron job monitor
@@ -48,7 +40,7 @@ Cronitor.prototype.create = function(obj) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Cronitor.prototype.createCron = function(config = {}) {
+Monitor.prototype.createCron = withApiValidation(function(config = {}) {
   if (!config.expression)
     throw new Error("'exression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}")
   if (!config.name || !config.name.length)
@@ -72,7 +64,7 @@ Cronitor.prototype.createCron = function(config = {}) {
     params['notifications'] = {templates: config.notificationLists}
 
   return this.create(params)
-}
+})
 
 /****
 * Create a new heartbeat monitor
@@ -83,7 +75,7 @@ Cronitor.prototype.createCron = function(config = {}) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Cronitor.prototype.createHeartbeat = function(config = {}) {
+Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
   var timeUnits = ['seconds', 'minutes', 'hours', 'days', 'weeks']
 
   if (!config.every && !config.at)
@@ -137,8 +129,7 @@ Cronitor.prototype.createHeartbeat = function(config = {}) {
     params['notifications'] = {templates: config.notificationLists}
 
   return this.create(params)
-}
-
+})
 
 /**
 * Retrieve a set of monitors
@@ -146,8 +137,7 @@ Cronitor.prototype.createHeartbeat = function(config = {}) {
 * @returns {Object} Array of monitors
 *
 */
-Cronitor.prototype.filter = function(params) {
-  validateMonitorApiKey.call(this)
+Monitor.prototype.filter = withApiValidation(function(params) {
   return axios
     .get(MONITOR_API_URL, {params})
     .then((res) => {
@@ -156,7 +146,7 @@ Cronitor.prototype.filter = function(params) {
     .catch((err) => {
       return err.response
     })
-}
+})
 
 
 /**
@@ -165,11 +155,9 @@ Cronitor.prototype.filter = function(params) {
 * @return {Object} monitor
 */
 
-Cronitor.prototype.get = function() {
-  validateMonitorCode.call(this)
-  validateMonitorApiKey.call(this)
+Monitor.prototype.get = withApiValidation(function(monitorCode) {
   return axios
-    .get(`${MONITOR_API_URL}/${this.monitorCode}`)
+    .get(`${MONITOR_API_URL}/${monitorCode}`)
     .then((res) => {
       return res.data
     })
@@ -177,7 +165,7 @@ Cronitor.prototype.get = function() {
       return err.response
     })
 
-}
+})
 
 
 /**
@@ -187,19 +175,40 @@ Cronitor.prototype.get = function() {
 * @return {Promise} Promise object
 */
 
-Cronitor.prototype.update = function(obj) {
-  validateMonitorCode.call(this)
-  validateMonitorApiKey.call(this)
-
+Monitor.prototype.update = withApiValidation(function(monitorCode, obj) {
   return axios
-    .put(`${MONITOR_API_URL}/${this.monitorCode}`, obj)
+    .put(`${MONITOR_API_URL}/${monitorCode}`, obj)
     .then((res) => {
       return res.data
     })
     .catch((err) => {
       return err.response
     })
+})
+
+/**
+* Pause  monitor
+*
+* @params { String} monitor code
+* @return { Promise } Promise
+*/
+
+Monitor.prototype.pause = function(monitorCode, time) {
+  var pauseURL = `${PING_API_URL}/${monitorCode}/pause/${time}?auth_key=${this.apiKey}`
+  return axios.get(pauseURL)
 }
+
+/**
+* Unpause  monitor
+*
+* @params { String } monitor code
+*/
+
+Monitor.prototype.unpause = function(monitorCode) {
+  var pauseURL = `${PING_API_URL}/${monitorCode}/pause/0?auth_key=${this.apiKey}`
+  return axios.get(pauseURL)
+}
+
 
 
 /**
@@ -209,19 +218,28 @@ Cronitor.prototype.update = function(obj) {
 * @return { Promise } Promise object
 */
 
-Cronitor.prototype.delete = function() {
-  validateMonitorCode.call(this)
-  validateMonitorApiKey.call(this)
+Monitor.prototype.delete = withApiValidation(function(monitorCode) {
   return axios
-    .delete(`${MONITOR_API_URL}/${this.monitorCode}`)
+    .delete(`${MONITOR_API_URL}/${monitorCode}`)
     .catch((err) => {
       return err.response
     })
-}
+})
+
 
 
 
 /** PING API **/
+
+function Ping(options) {
+  if (!options.code)
+    throw Error("You must supply a monitorCode.")
+
+  this.authKey = options.authKey || null
+  axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
+}
+
+
 
 /**
 * Call run endpoint
@@ -230,9 +248,8 @@ Cronitor.prototype.delete = function() {
 * @return { Promise } Promise object
 */
 
-Cronitor.prototype.run = function(message) {
-  validateMonitorCode.call(this)
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'run', this.monitorCode, message, this.authKey))
+Ping.prototype.run = function(monitorCode, message) {
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'run', monitorCode, message, this.authKey))
   return axios.get(finalURL)
 }
 
@@ -244,9 +261,8 @@ Cronitor.prototype.run = function(message) {
 * @return { Promise } Promise object
 */
 
-Cronitor.prototype.complete = function(message) {
-  validateMonitorCode.call(this)
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'complete', this.monitorCode, message, this.authKey))
+Ping.prototype.complete = function(monitorCode, message) {
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'complete', monitorCode, message, this.authKey))
   return axios.get(finalURL)
 }
 
@@ -257,47 +273,23 @@ Cronitor.prototype.complete = function(message) {
 * @params { String } message
 * @return { Promise } Promise object
 */
-Cronitor.prototype.fail = function(message) {
-  validateMonitorCode.call(this)
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'fail', this.monitorCode, message, this.authKey))
-	return axios.get(finalURL)
+Ping.prototype.fail = function(monitorCode, message) {
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'fail', monitorCode, message, this.authKey))
+  return axios.get(finalURL)
 }
 
 /**
-* Pause  monitor
-*
-* @params { String} monitor code
-* @return { Promise } Promise
-*/
+ *
+ * Utitly Functions
+ *
+ */
 
-Cronitor.prototype.pause = function(time) {
-  validateMonitorCode.call(this)
-  var pauseURL = `${PING_API_URL}/${this.monitorCode}/pause/${time}${this.authKey ? `?auth_key=${this.authKey}` : '' }`
-  return axios.get(pauseURL)
+function withApiValidation(func) {
+  if (!this.apiKey)
+    new Error("You must initialize cronitor with a apiKey to call this method.")
+  return func
 }
 
-/**
-* Unpause  monitor
-*
-* @params { String } monitor code
-*/
-
-Cronitor.prototype.unpause = function() {
-  validateMonitorCode.call(this)
-  var pauseURL = `${PING_API_URL}/${this.monitorCode}/pause/0${this.authKey ? `?auth_key=${this.authKey}` : '' }`
-  return axios.get(pauseURL)
-}
-
-
-function validateMonitorCode() {
-  if (!this.monitorCode)
-    new Error("You must initialize cronitor with a monitor code to call this method.")
-}
-
-function validateMonitorApiKey() {
-  if (!this.monitorApiKey)
-    new Error("You must initialize cronitor with a monitorApiKey to call this method.")
-}
 
 function buildUrlObj (baseUrl, action, code, msg, authKey) {
   var urlObj = {
@@ -323,4 +315,4 @@ function buildUrl(urlObj) {
 }
 
 
-module.exports = Cronitor
+module.exports = { Monitor, Ping }

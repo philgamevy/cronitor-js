@@ -2,14 +2,15 @@ var querystring = require('querystring')
 var nock = require('nock')
 var chai = require('chai')
 
-var Cronitor = require('../index')
+var { Monitor, Ping } = require('../index')
 var expect = chai.expect
 var authKey = '12345'
 var authQs = '?auth_key=' + authKey
 var msg = 'a message'
 var dummyCode = 'd3x0c1'
 var baseUrl = 'https://cronitor.link'
-var monitorApiKey = '1337hax0r'
+var apiKey = '1337hax0r'
+
 var newMonitorFixture = {
   "name": "Testing_Cronitor_Client",
   "notifications": {
@@ -35,8 +36,8 @@ var newMonitorFixture = {
 }
 
 describe('Ping API', function() {
-  var cronitor = new Cronitor({code: dummyCode})
-  var cronitorAuthed = new Cronitor({code: dummyCode, authKey: authKey})
+  var ping = new Ping({code: dummyCode})
+  var pingAuthed = new Ping({code: dummyCode, authKey: authKey})
   var endpoints = ['run', 'complete', 'fail']
 
   endpoints.forEach((endpoint) => {
@@ -54,14 +55,14 @@ describe('Ping API', function() {
       })
 
       it('calls run correctly', function(done) {
-        cronitor[endpoint]().then((res) => {
+        ping[endpoint](dummyCode).then((res) => {
           expect(res.status).to.eq(200)
           done()
         })
       })
 
       it('calls run correctly with message', function(done) {
-        cronitor[endpoint](msg).then((res) => {
+        ping[endpoint](dummyCode, msg).then((res) => {
           expect(res.status).to.eq(200)
           expect(res.config.url).to.contain(`?msg=a%20message`)
           done()
@@ -69,56 +70,11 @@ describe('Ping API', function() {
       })
 
       it('authed calls run correctly', function(done) {
-        cronitorAuthed[endpoint]().then((res) => {
+        pingAuthed[endpoint](dummyCode).then((res) => {
           expect(res.status).to.eq(200)
           expect(res.config.url).to.contain(`?auth_key=${authKey}`)
           done()
         })
-      })
-    })
-  })
-
-  context("Pause Endpoint", function() {
-    it('calls pause correctly', function(done) {
-      nock('https://cronitor.link')
-          .get(`/${dummyCode}/pause/5`)
-          .reply(200)
-
-      cronitor.pause(5).then((res) => {
-        expect(res.status).to.eq(200)
-        done()
-      })
-    })
-
-    it('calls unpause correctly', function(done) {
-      nock('https://cronitor.link')
-          .get(`/${dummyCode}/pause/0`)
-          .reply(200)
-
-      cronitor.unpause().then((res) => {
-        expect(res.status).to.eq(200)
-        done()
-      })
-    })
-
-    it('authed calls pause correctly', function(done) {
-      nock('https://cronitor.link')
-         .get(`/${dummyCode}/pause/5?auth_key=${authKey}`)
-          .reply(200)
-
-        cronitorAuthed.pause(5).then((res) => {
-        expect(res.status).to.eq(200)
-        done()
-      })
-    })
-
-    it('authed calls unpause correctly', function(done) {
-      nock('https://cronitor.link')
-          .get(`/${dummyCode}/pause/0?auth_key=${authKey}`)
-          .reply(200)
-      cronitorAuthed.unpause().then((res) => {
-        expect(res.status).to.eq(200)
-        done()
       })
     })
   })
@@ -128,7 +84,7 @@ describe('Ping API', function() {
 // run integration tests against a production account
 if (process.env.MONITOR_API_KEY) {
   describe("Integration Tests", function() {
-    var cronitor = new Cronitor({monitorApiKey: process.env.MONITOR_API_KEY})
+    var cronitor = new Monitor({apiKey: process.env.MONITOR_API_KEY})
     var cronMonitor = {
       "name": "Testing_Cronitor_Client_Cron",
       "type": "cron",
@@ -236,13 +192,14 @@ if (process.env.MONITOR_API_KEY) {
     })
   })
 } else {
+
   describe("Monitor API ", function() {
     var existingMonitorCode = null
     var cronitor = null
 
     describe("Create Monitor", function() {
-      context("with a valid monitorApiKey", function() {
-        var cronitor = new Cronitor({monitorApiKey: monitorApiKey})
+      context("with a valid apiKey", function() {
+        var cronitor = new Monitor({apiKey})
 
         it("should create a monitor", function(done) {
           nock('https://cronitor.io')
@@ -273,12 +230,10 @@ if (process.env.MONITOR_API_KEY) {
         })
       })
 
-      context("without a monitorApiKey", function(done) {
-        var cronitor = new Cronitor({code: dummyCode})
-
+      context("without a apiKey", function(done) {
         it("should raise an exception", function (done) {
           expect(function() {
-            cronitor.create(newMonitorFixture).to.throw(new Error("You must provide a monitorApiKey to create a monitor."))
+            new Monitor({code: dummyCode}).to.throw(new Error("You must provide a apiKey to create a monitor."))
           })
           done()
         })
@@ -288,11 +243,11 @@ if (process.env.MONITOR_API_KEY) {
 
     describe("Retrieve Monitors", function() {
       describe("List", function() {
-        var cronitor
+        var monitor
 
-        context("with a valid monitorApiKey", function() {
+        context("with a valid apiKey", function() {
           beforeEach(function(done) {
-            cronitor = new Cronitor({monitorApiKey: monitorApiKey})
+            monitor = new Monitor({apiKey})
             done()
           })
 
@@ -301,7 +256,7 @@ if (process.env.MONITOR_API_KEY) {
               .get('/v3/monitors')
               .reply(200, {monitors: [{...newMonitorFixture, code: dummyCode}, {...newMonitorFixture, code: "foo"}]})
 
-            cronitor.filter().then((res) =>{
+            monitor.filter().then((res) =>{
               expect(res.monitors.length).to.eq(2)
               expect(res.monitors[0].code).to.eq(dummyCode)
               expect(res.monitors[1].code).to.eq("foo")
@@ -314,7 +269,7 @@ if (process.env.MONITOR_API_KEY) {
               .get('/v3/monitors?page=2')
               .reply(200, {page: 2, monitors: [{...newMonitorFixture, code: dummyCode}, {...newMonitorFixture, code: "foo"}]})
 
-            cronitor.filter({page: 2}).then((res) => {
+            monitor.filter({page: 2}).then((res) => {
               expect(res.page).to.eq(2)
               expect(res.monitors.length).to.eq(2)
               expect(res.monitors[0].code).to.eq(dummyCode)
@@ -323,22 +278,11 @@ if (process.env.MONITOR_API_KEY) {
             })
           })
         })
-
-        context("with no monitorApiKey", function() {
-          cronitor = new Cronitor({code: dummyCode})
-
-          it("should raise an exception", function (done) {
-            expect(function() {
-              cronitor.filter().to.throw(new Error("You must provide a monitorApiKey to retrieve monitors."))
-            })
-            done()
-          })
-        })
       })
 
       describe("Individual", function() {
         var cronitor
-        context("with a valid monitorApiKey", function() {
+        context("with a valid apiKey", function() {
           beforeEach(function(done) {
             nock('https://cronitor.io')
               .get('/v3/monitors/' + dummyCode)
@@ -347,22 +291,12 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should retrieve a monitor", function(done) {
-            cronitor = new Cronitor({code: dummyCode, monitorApiKey: monitorApiKey})
-            cronitor.get().then((res) => {
+            monitor = new Monitor({apiKey})
+            monitor.get(dummyCode).then((res) => {
               expect(res['code']).to.eq(dummyCode)
               done()
             })
 
-          })
-        })
-
-        context("with no monitorApiKey", function() {
-          cronitor = new Cronitor({code: dummyCode})
-          it("should raise an exception", function (done) {
-            expect(function() {
-              cronitor.get().to.throw(new Error("You must provide a monitorApiKey to retrieve a monitor."))
-            })
-            done()
           })
         })
       })
@@ -370,7 +304,7 @@ if (process.env.MONITOR_API_KEY) {
 
 
     describe("Update Monitor", function() {
-      context("with monitorApiKey", function() {
+      context("with apiKey", function() {
         context("and monitor code", function() {
           beforeEach(function(done){
             nock('https://cronitor.io')
@@ -380,8 +314,8 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should update a monitor", function(done) {
-            var cronitor = new Cronitor({monitorApiKey: monitorApiKey, code: dummyCode})
-            cronitor.update(newMonitorFixture).then((res) => {
+            var monitor = new Monitor({apiKey: apiKey})
+            monitor.update(dummyCode, newMonitorFixture).then((res) => {
               expect(res['code']).to.eq(dummyCode)
               done()
             })
@@ -389,30 +323,20 @@ if (process.env.MONITOR_API_KEY) {
         })
 
         context("and without monitor code", function(done) {
-          var cronitor = new Cronitor({monitorApiKey: monitorApiKey})
+          var monitor = new Monitor({apiKey})
           it("should raise an exception", function (done) {
             expect(function() {
-              cronitor.update({}).to.throw(new Error("You must provide a monitor code to update a monitor."))
+              monitor.update(null, {}).to.throw(new Error("You must provide a monitor code to update a monitor."))
             })
             done()
           })
-        })
-      })
-
-      context("without monitorApiKey", function(done) {
-        var cronitor = new Cronitor({code: dummyCode})
-        it("should raise an exception", function (done) {
-          expect(function() {
-            cronitor.update({}).to.throw(new Error("You must provide a monitorApiKey to update a monitor."))
-          })
-          done()
         })
       })
     })
 
 
     describe("Delete Monitor", function() {
-      context("with monitorApiKey", function() {
+      context("with apiKey", function() {
         context("and monitor code", function() {
           beforeEach(function(done){
             nock('https://cronitor.io')
@@ -422,8 +346,8 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should delete a monitor", function(done) {
-            var cronitor = new Cronitor({monitorApiKey: monitorApiKey, code: dummyCode})
-            cronitor.delete().then((res) => {
+            var monitor = new Monitor({apiKey})
+            monitor.delete(dummyCode).then((res) => {
               expect(res.status).to.eq(204)
               done()
             })
@@ -431,7 +355,7 @@ if (process.env.MONITOR_API_KEY) {
         })
 
         context("and without monitor code", function(done) {
-          var cronitor = new Cronitor({monitorApiKey: monitorApiKey})
+          var cronitor = new Monitor({apiKey})
           it("should raise an exception", function (done) {
             expect(function() {
               cronitor.delete().to.throw(new Error("You must provide a monitor code to delete a monitor."))
@@ -440,13 +364,28 @@ if (process.env.MONITOR_API_KEY) {
           })
         })
       })
+    })
 
-      context("without monitorApiKey", function(done) {
-        var cronitor = new Cronitor({code: dummyCode})
-        it("should raise an exception", function (done) {
-          expect(function() {
-            cronitor.delete().to.throw(new Error("You must provide a monitorApiKey to delete a monitor."))
-          })
+    describe("Pause Endpoint", function() {
+      var monitor = new Monitor({apiKey})
+
+      it('calls pause correctly', function(done) {
+        nock('https://cronitor.link')
+          .get(`/${dummyCode}/pause/5?auth_key=${monitor.apiKey}`)
+            .reply(200)
+
+          monitor.pause(dummyCode, 5).then((res) => {
+          expect(res.status).to.eq(200)
+          done()
+        })
+      })
+
+      it('calls unpause correctly', function(done) {
+        nock('https://cronitor.link')
+            .get(`/${dummyCode}/pause/0?auth_key=${monitor.apiKey}`)
+            .reply(200)
+        monitor.unpause(dummyCode).then((res) => {
+          expect(res.status).to.eq(200)
           done()
         })
       })
