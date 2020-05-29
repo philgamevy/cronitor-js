@@ -231,9 +231,6 @@ Monitor.prototype.delete = withApiValidation(function(monitorCode) {
 /** PING API **/
 
 function Ping(options) {
-  if (!options.code)
-    throw Error("You must supply a monitorCode.")
-
   this.authKey = options.authKey || null
   axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
