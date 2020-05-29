@@ -1,8 +1,6 @@
 # Cronitor Ping and Monitor API Client
 
-[![Travis Build](https://img.shields.io/travis/bigethan/cronitor-caller/master.svg)](https://travis-ci.org/bigethan/cronitor-caller)
-[![Coveralls](https://img.shields.io/coveralls/bigethan/cronitor-caller/master.svg)](https://coveralls.io/github/bigethan/cronitor-caller?branch=master)
-![dependencies](https://img.shields.io/badge/dependencies-NONE!-brightgreen.svg)
+[![Build Status](https://travis-ci.org/cronitorio/cronitor-js.svg?branch=master)](https://travis-ci.org/cronitorio/cronitor-js)
 
 Cronitor is a service for heartbeat-style monitoring of anything that can send an HTTP request. It's particularly well suited for monitoring cron jobs, node-cron, or any other background task.
 
@@ -14,57 +12,55 @@ This library provides a simple abstraction for performing monitor CRUD operation
 
 ## Usage
 
-### Ping an existing monitor
+### Ping a Monitor
 ```javascript
-var Cronitor = require('cronitor')
+const { Ping } = require('cronitor')
 
 // create new object with monitor's unique code
-const cronitor = new Cronitor({code: 'd3x0c1'})
+ping = new Ping({code: 'd3x0c1'})
 
 // api matches cronitor's
-cronitor.run()
-cronitor.complete()
-cronitor.pause(5) //pause for 5 hours
-cronitor.unpause()
-cronitor.fail("Hard Fail") // all methods accept an optional message
+ping.run()
+ping.complete()
+ping.pause(5) //pause for 5 hours
+ping.unpause()
+ping.fail("Hard Fail") // all methods accept an optional message
 
 // if authenticated pings are enabled add your authKey like so
 const cronitor = new Cronitor({code: 'd3x0c1', authKey: 'xxxxxx'})
 cronitor.run("My auth key is used to authenticate requests")
 ```
 
-### Create a new monitor
+### Creating a Monitor
 
 ```javascript
-var Cronitor = require('cronitor')
+var { Monitor } = require('../index')
 
 // instantiate with a apiKey (https://cronitor.io/settings#account)
-const cronitor = new Cronitor({apiKey: 'xxxxxx'})
+const monitor = new Monitor({apiKey: 'xxxxxx'})
 
 // sugar syntax for creating a new cron monitor
-cronitor.createCron({
+monitor.createCron({
     name: 'Nightly DB Backup',
     expression: '0 0 * * *',
     notificationLists: ['devops-pagerduty'] // optional. account default will be used if omitted.
 })
 
 // sugar syntax for creating a new heartbeat monitor (and immediately pinging it)
-cronitor.createHeartbeat({
+monitor.createHeartbeat({
     name: 'Queue Worker Heartbeat',
     every: [60, 'seconds']
-}).then((monitor) => {
+}).then((obj) => {
     // all CRUD methods return a Promise object.
-    // resolve method is passed a POJO representing the monitor
-    console.log(monitor.code) // d3x0c1
-    // creating a monitor will also set the code on this object and allow you to immediately ping it
-    cronitor.run("My first ping!")
+    // resolve method is passed a POJO representing the obj
+    console.log(obj.code) // d3x0c1
 })
 
 
 // create any type of monitor.
 // pass an object that adheres to the Monitor v3 API specification (https://cronitor.io/docs/monitor-api)
 // this is equivalent to the first example above
-cronitor.create({
+monitor.create({
     type: 'cron'
     name: 'Nightly DB Backup',
     rules: [
@@ -76,8 +72,8 @@ cronitor.create({
     notifications: {
         templates: ['devops-pagerduty']
     }
-}).then((monitor) => {
-    console.log(monitor.name) // 'Nightly DB Backup'
+}).then((obj) => {
+    console.log(obj.name) // 'Nightly DB Backup'
 })
 
 ```
