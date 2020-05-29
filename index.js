@@ -7,7 +7,6 @@ var PING_API_URL = "https://cronitor.link"
 
 
 function Monitor(options) {
-  options = {...options}
   this.apiKey = options.apiKey || null
   axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
