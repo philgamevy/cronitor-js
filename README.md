@@ -22,13 +22,11 @@ ping = new Ping({code: 'd3x0c1'})
 // api matches cronitor's
 ping.run()
 ping.complete()
-ping.pause(5) //pause for 5 hours
-ping.unpause()
 ping.fail("Hard Fail") // all methods accept an optional message
 
-// if authenticated pings are enabled add your authKey like so
-const cronitor = new Cronitor({code: 'd3x0c1', authKey: 'xxxxxx'})
-cronitor.run("My auth key is used to authenticate requests")
+// if authenticated pings are enabled add your apiKey like so
+const ping = new Ping({code: 'd3x0c1', apiKey: 'xxxxxx'})
+ping.run("My auth key is used to authenticate requests")
 ```
 
 ### Creating a Monitor
@@ -82,19 +80,22 @@ monitor.create({
 
 ```javascript
 
-var Cronitor = require('cronitor')
-const cronitor = new Cronitor({apiKey: 'xxxxxx', code: 'd3x0c1'})
+var { Monitor } = require('cronitor')
+const monitor = new Monitor({apiKey: 'xxxxxx', code: 'd3x0c1'})
 
 // Update existing attributes on a monitor
-cronitor.update({name: 'Midnight UTC DB Backup'}).then((monitor) => {
+monitor.update({name: 'Midnight UTC DB Backup'}).then((monitor) => {
     console.log(monitor.name) // 'Midnight UTC DB Backup'
 })
 
+monitor.pause(5)
+monitor.unpause()
+
 // delete a monitor
-cronitor.delete()
+monitor.delete()
 
 // does not require a code
-cronitor.filter({page: 2}).then((res) => {
+monitor.filter({page: 2}).then((res) => {
     console.log(res.total_monitor_count) // 83
     console.log(res.page) // 2
     console.log(res.monitors.length) // 33

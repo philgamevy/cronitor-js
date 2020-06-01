@@ -231,7 +231,7 @@ Monitor.prototype.delete = withApiValidation(function(monitorCode) {
 /** PING API **/
 
 function Ping(options) {
-  this.authKey = options.authKey || null
+  this.apiKey = options.apiKey || null
   axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
 
@@ -245,7 +245,7 @@ function Ping(options) {
 */
 
 Ping.prototype.run = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'run', monitorCode, message, this.authKey))
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'run', monitorCode, message, this.apiKey))
   return axios.get(finalURL)
 }
 
@@ -258,7 +258,7 @@ Ping.prototype.run = function(monitorCode, message) {
 */
 
 Ping.prototype.complete = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'complete', monitorCode, message, this.authKey))
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'complete', monitorCode, message, this.apiKey))
   return axios.get(finalURL)
 }
 
@@ -270,7 +270,7 @@ Ping.prototype.complete = function(monitorCode, message) {
 * @return { Promise } Promise object
 */
 Ping.prototype.fail = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'fail', monitorCode, message, this.authKey))
+  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'fail', monitorCode, message, this.apiKey))
   return axios.get(finalURL)
 }
 
@@ -287,15 +287,15 @@ function withApiValidation(func) {
 }
 
 
-function buildUrlObj (baseUrl, action, code, msg, authKey) {
+function buildUrlObj (baseUrl, action, code, msg, apiKey) {
   var urlObj = {
     basePath: baseUrl + '/' + code + '/' + action,
   }
 
-  if (authKey || msg) {
+  if (apiKey || msg) {
     urlObj.qs = {}
-    if (authKey) {
-      urlObj.qs.auth_key = authKey
+    if (apiKey) {
+      urlObj.qs.auth_key = apiKey
     }
     if (msg) {
       urlObj.qs.msg = msg

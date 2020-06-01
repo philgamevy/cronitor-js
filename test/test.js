@@ -4,8 +4,8 @@ var chai = require('chai')
 
 var { Monitor, Ping } = require('../index')
 var expect = chai.expect
-var authKey = '12345'
-var authQs = '?auth_key=' + authKey
+var pingApiKey = '12345'
+var authQs = '?auth_key=' + pingApiKey
 var msg = 'a message'
 var dummyCode = 'd3x0c1'
 var baseUrl = 'https://cronitor.link'
@@ -37,7 +37,7 @@ var newMonitorFixture = {
 
 describe('Ping API', function() {
   var ping = new Ping({code: dummyCode})
-  var pingAuthed = new Ping({code: dummyCode, authKey: authKey})
+  var pingAuthed = new Ping({code: dummyCode, apiKey: pingApiKey})
   var endpoints = ['run', 'complete', 'fail']
 
   endpoints.forEach((endpoint) => {
@@ -48,7 +48,7 @@ describe('Ping API', function() {
           .reply(200)
           .get(`/${dummyCode}/${endpoint}?msg=${msg}`)
           .reply(200)
-          .get(`/${dummyCode}/${endpoint}?auth_key=${authKey}`)
+          .get(`/${dummyCode}/${endpoint}?auth_key=${pingApiKey}`)
           .reply(200)
 
         done()
@@ -72,7 +72,7 @@ describe('Ping API', function() {
       it('authed calls run correctly', function(done) {
         pingAuthed[endpoint](dummyCode).then((res) => {
           expect(res.status).to.eq(200)
-          expect(res.config.url).to.contain(`?auth_key=${authKey}`)
+          expect(res.config.url).to.contain(`?auth_key=${pingApiKey}`)
           done()
         })
       })
