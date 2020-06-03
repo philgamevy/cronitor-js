@@ -226,89 +226,98 @@ Monitor.prototype.delete = withApiValidation(function(monitorCode) {
 })
 
 
+function Heartbeat(options={}) {
+  if (typeof options === 'string') options = {monitorId: options}
+  if (!options.monitorId) throw new Error("You must initialize Heartbeat with a monitorId.")
+
+  this._state = {
+    callCount: 0,
+    reportedCallCount: 0
+  }
+  this._ping = new Ping(options)
+  this.intervalSeconds = Math.max(options.intervalSeconds || 60, 10)
+  this.intervalId = setInterval(this._flush, this.intervalSeconds)
+}
+
+Heartbeat.prototype.tick = function(count=1) {
+  this._state.callCount += count
+}
+
+Heartbeat.prototype.stop = function() {
+  clearInterval(this.intervalId)
+  this.intervalId = null
+  if (this._state.callCount > this._state.reportedCallCount) {
+    this._flush()
+  }
+}
+
+Heartbeat.prototype.fail = function() {
+  this.stop()
+  this._ping.fail()
+}
+
+Heartbeat.prototype._flush = function() {
+  const currentCallCount = this._state.callCount
+  const diffCallCount = Math.min(currentCallCount - this._state.reportedCallCount, 0)
+  this._ping.tick({count: diffCallCount, duration: this.intervalSeconds}).then(() => {
+    console.log("ere we are", currentCallCount)
+    this._state.reportedCallCount = currentCallCount
+  })
+
+}
+
 
 
 /** PING API **/
 
 function Ping(options) {
+  this.monitorId = options.monitorId
+  if (!this.monitorId) {
+    new Error("You must initialize a Ping object with a monitorId.")
+  }
   this.apiKey = options.apiKey || null
-  axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
 
-
-
 /**
-* Call run endpoint
+* Endpoint methods
 
-* @params { String } message
+* @params { String || Object } obj
 * @return { Promise } Promise object
 */
-
-Ping.prototype.run = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'run', monitorCode, message, this.apiKey))
-  return axios.get(finalURL)
-}
-
-
-/**
-* Call complete endpoint
-*
-* @params { String } message
-* @return { Promise } Promise object
-*/
-
-Ping.prototype.complete = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'complete', monitorCode, message, this.apiKey))
-  return axios.get(finalURL)
-}
+const ENDPOINTS = ['run', 'complete', 'fail', 'ok', 'tick']
+ENDPOINTS.forEach((endpoint) => {
+  Ping.prototype[endpoint] = function(obj) {
+    let params = cleanParams.call(this, obj)
+    return axios.get(buildUrl(endpoint, this.monitorId, params))
+  }
+})
 
 
-/**
-* Call fail endpoint
-*
-* @params { String } message
-* @return { Promise } Promise object
-*/
-Ping.prototype.fail = function(monitorCode, message) {
-  var finalURL = buildUrl(buildUrlObj(PING_API_URL, 'fail', monitorCode, message, this.apiKey))
-  return axios.get(finalURL)
-}
-
-/**
- *
- * Utitly Functions
- *
- */
-
+/** Utitly Functions **/
 function withApiValidation(func) {
-  if (!this.apiKey)
-    new Error("You must initialize cronitor with a apiKey to call this method.")
+  if (!this.apiKey) new Error("You must initialize your Monitor with an apiKey to call this method.")
   return func
 }
 
 
-function buildUrlObj (baseUrl, action, code, msg, apiKey) {
-  var urlObj = {
-    basePath: baseUrl + '/' + code + '/' + action,
+function cleanParams(params) {
+  params = params || {}
+  let allowedParams = {
+    msg: typeof params === 'string' ? params : params.message ? params.message : null,
+    count: params.count || null,
+    env: params.env || null,
+    duration: params.duration || null,
+    host: params.host ||  null,
+    series: params.series || null,
+    auth_key: this.apiKey
   }
-
-  if (apiKey || msg) {
-    urlObj.qs = {}
-    if (apiKey) {
-      urlObj.qs.auth_key = apiKey
-    }
-    if (msg) {
-      urlObj.qs.msg = msg
-    }
-  }
-
-  return urlObj
+  Object.keys(allowedParams).forEach((key) => (allowedParams[key] == null) && delete allowedParams[key])
+  return allowedParams
 }
 
-function buildUrl(urlObj) {
-  var url = urlObj.basePath + (urlObj.qs ? '?' + querystring.stringify(urlObj.qs) : '')
-  return url
+function buildUrl(action, code, params) {
+  let baseUrl = `${PING_API_URL}/${code}/${action}`
+  return baseUrl + (Object.keys(params).length ? '?' + querystring.stringify(params) : '')
 }
 
-
-module.exports = { Monitor, Ping }
+module.exports = { Monitor, Ping, Heartbeat }

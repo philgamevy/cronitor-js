@@ -81,18 +81,18 @@ monitor.create({
 ```javascript
 
 var { Monitor } = require('cronitor')
-const monitor = new Monitor({apiKey: 'xxxxxx', code: 'd3x0c1'})
+const monitor = new Monitor({apiKey: 'xxxxxx'})
 
 // Update existing attributes on a monitor
-monitor.update({name: 'Midnight UTC DB Backup'}).then((monitor) => {
+monitor.update('d3x0c1', {name: 'Midnight UTC DB Backup'}).then((monitor) => {
     console.log(monitor.name) // 'Midnight UTC DB Backup'
 })
 
-monitor.pause(5)
-monitor.unpause()
+monitor.pause('d3x0c1', 5)
+monitor.unpause('d3x0c1')
 
 // delete a monitor
-monitor.delete()
+monitor.delete('d3x0c1')
 
 // does not require a code
 monitor.filter({page: 2}).then((res) => {
