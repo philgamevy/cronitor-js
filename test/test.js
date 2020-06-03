@@ -59,6 +59,11 @@ describe('Ping API', function() {
         done()
       })
 
+      this.afterAll(function() {
+        nock.cleanAll()
+        nock.enableNetConnect()
+      })
+
       it(`calls ${endpoint} correctly`, function(done) {
         ping[endpoint]().then((res) => {
           expect(res.status).to.eq(200)

@@ -260,7 +260,6 @@ Heartbeat.prototype._flush = function() {
   const currentCallCount = this._state.callCount
   const diffCallCount = Math.min(currentCallCount - this._state.reportedCallCount, 0)
   this._ping.tick({count: diffCallCount, duration: this.intervalSeconds}).then(() => {
-    console.log("ere we are", currentCallCount)
     this._state.reportedCallCount = currentCallCount
   })
 
