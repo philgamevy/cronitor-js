@@ -1,10 +1,9 @@
-var querystring = require('querystring')
-var axios = require("axios")
+const querystring = require('querystring')
+const axios = require("axios")
 
 
-var MONITOR_API_URL = "https://cronitor.io/v3/monitors"
-var PING_API_URL = "https://cronitor.link"
-
+const MONITOR_API_URL = "https://cronitor.io/v3/monitors"
+const PING_API_URL = "https://cronitor.link"
 
 function Monitor(options) {
   this.apiKey = options.apiKey || null
@@ -41,13 +40,13 @@ Monitor.prototype.create = withApiValidation(function(obj) {
 */
 Monitor.prototype.createCron = withApiValidation(function(config = {}) {
   if (!config.expression)
-    throw new Error("'exression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}")
+    throw new Error("'expression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}")
   if (!config.name || !config.name.length)
     throw new Error("'name' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00'}")
   if (config.notificationLists && !Array.isArray(config.notificationLists))
     throw new Error("'notificationLists' must be an array e.g. ['site-emergency']")
 
-  var params = {
+  let params = {
     type: "cron",
     name: config.name,
     rules: [
@@ -75,7 +74,7 @@ Monitor.prototype.createCron = withApiValidation(function(config = {}) {
 *
 */
 Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
-  var timeUnits = ['seconds', 'minutes', 'hours', 'days', 'weeks']
+  let timeUnits = ['seconds', 'minutes', 'hours', 'days', 'weeks']
 
   if (!config.every && !config.at)
     throw new Error("missing required field 'every' or 'at'")
@@ -228,25 +227,23 @@ Monitor.prototype.delete = withApiValidation(function(monitorCode) {
 
 function Heartbeat(options={}) {
   if (typeof options === 'string') options = {monitorId: options}
-  if (!options.monitorId) throw new Error("You must initialize Heartbeat with a monitorId.")
+  if (!options.monitorId)
+    throw new Error("You must initialize Heartbeat with a monitorId.")
 
-  this._state = {
-    callCount: 0,
-    reportedCallCount: 0
-  }
+  this._state = { loopCount: 0 }
   this._ping = new Ping(options)
   this.intervalSeconds = Math.max(options.intervalSeconds || 60, 10)
-  this.intervalId = setInterval(this._flush, this.intervalSeconds)
+  this.intervalId = setInterval(this._flush.bind(this), this.intervalSeconds * 1000)
 }
 
 Heartbeat.prototype.tick = function(count=1) {
-  this._state.callCount += count
+  this._state.loopCount += count
 }
 
 Heartbeat.prototype.stop = function() {
   clearInterval(this.intervalId)
   this.intervalId = null
-  if (this._state.callCount > this._state.reportedCallCount) {
+  if (this._state.loopCount > 0) {
     this._flush()
   }
 }
@@ -257,19 +254,17 @@ Heartbeat.prototype.fail = function() {
 }
 
 Heartbeat.prototype._flush = function() {
-  const currentCallCount = this._state.callCount
-  const diffCallCount = Math.min(currentCallCount - this._state.reportedCallCount, 0)
-  this._ping.tick({count: diffCallCount, duration: this.intervalSeconds}).then(() => {
-    this._state.reportedCallCount = currentCallCount
-  })
-
+  // reset loop count to 0 each time we flush
+  const loopCount = this._state.loopCount
+  this._state.loopCount = 0
+  this._ping.tick({count: loopCount, duration: this.intervalSeconds})
 }
-
 
 
 /** PING API **/
 
 function Ping(options) {
+  if (typeof options === 'string') options = {monitorId: options}
   this.monitorId = options.monitorId
   if (!this.monitorId) {
     new Error("You must initialize a Ping object with a monitorId.")

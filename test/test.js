@@ -1,22 +1,23 @@
-var querystring = require('querystring')
-var nock = require('nock')
-var chai = require('chai')
-var sinon = require('sinon')
-var sinonChai = require("sinon-chai")
-var sinonStubPromise = require('sinon-stub-promise')
+const querystring = require('querystring')
+, nock = require('nock')
+, chai = require('chai')
+, sinon = require('sinon')
+, sinonChai = require("sinon-chai")
+, sinonStubPromise = require('sinon-stub-promise')
+, expect = chai.expect
+
 sinonStubPromise(sinon)
-var expect = chai.expect
 chai.use(sinonChai)
 
-var { Monitor, Ping, Heartbeat } = require('../index')
-var pingApiKey = '12345'
-var authQs = '?auth_key=' + pingApiKey
-var msg = 'a message'
-var dummyId = 'd3x0c1'
-var baseUrl = 'https://cronitor.link'
-var apiKey = '1337hax0r'
+const { Monitor, Ping, Heartbeat } = require('../index')
+const pingApiKey = '12345'
+const authQs = '?auth_key=' + pingApiKey
+const msg = 'a message'
+const dummyId = 'd3x0c1'
+const baseUrl = 'https://cronitor.link'
+const apiKey = '1337hax0r'
 
-var newMonitorFixture = {
+const newMonitorFixture = {
   "name": "Testing_Cronitor_Client",
   "notifications": {
       "phones": [],
@@ -41,9 +42,9 @@ var newMonitorFixture = {
 }
 
 describe('Ping API', function() {
-  var ping = new Ping({monitorId: dummyId})
-  var pingAuthed = new Ping({monitorId: dummyId, apiKey: pingApiKey})
-  var endpoints = ['run', 'complete', 'fail', 'tick', 'ok']
+  const ping = new Ping({monitorId: dummyId})
+  const pingAuthed = new Ping({monitorId: dummyId, apiKey: pingApiKey})
+  const endpoints = ['run', 'complete', 'fail', 'tick', 'ok']
 
   endpoints.forEach((endpoint) => {
     context(`${endpoint.toUpperCase()} Endpoint`, function() {
@@ -111,8 +112,7 @@ describe("Heartbeat", function(done) {
   })
   context("constructor", function() {
     it("should set initial values", function() {
-        expect(heartbeat._state.callCount).to.eq(0)
-        expect(heartbeat._state.reportedCallCount).to.eq(0)
+        expect(heartbeat._state.loopCount).to.eq(0)
         expect(heartbeat._ping).to.be.instanceOf(Ping)
         expect(heartbeat.intervalSeconds).to.eq(60)
         expect(heartbeat.intervalId).to.exist
@@ -133,8 +133,7 @@ describe("Heartbeat", function(done) {
     context("when monitorId is passed as a string", function() {
       it("should use defaults", function() {
         heartbeat = new Heartbeat(dummyId)
-        expect(heartbeat._state.callCount).to.eq(0)
-        expect(heartbeat._state.reportedCallCount).to.eq(0)
+        expect(heartbeat._state.loopCount).to.eq(0)
         expect(heartbeat._ping).to.be.instanceOf(Ping)
         expect(heartbeat.intervalSeconds).to.eq(60)
         expect(heartbeat.intervalId).to.exist
@@ -150,11 +149,13 @@ describe("Heartbeat", function(done) {
 
   context("tick", function() {
     it("should increase the called count", function() {
-      expect(heartbeat._state.callCount).to.eq(0)
+      expect(heartbeat._state.loopCount).to.eq(0)
       heartbeat.tick()
-      expect(heartbeat._state.callCount).to.eq(1)
+      expect(heartbeat._state.loopCount).to.eq(1)
       heartbeat.tick()
-      expect(heartbeat._state.callCount).to.eq(2)
+      expect(heartbeat._state.loopCount).to.eq(2)
+      heartbeat.tick(0)
+      expect(heartbeat._state.loopCount).to.eq(2)
     })
   })
 
@@ -194,13 +195,12 @@ describe("Heartbeat", function(done) {
       // expect(pingTick).to.have.been.calledWith({count: 1, duration: heartbeat.intervalSeconds})
     })
 
-    it("should increment the reportedCalledCount", function() {
+    it("should reset the loopCount", function() {
       let stub = sinon.stub(heartbeat._ping, 'tick').returnsPromise().resolves({})
       heartbeat.tick()
-      expect(heartbeat._state.callCount).to.eq(1)
-      expect(heartbeat._state.reportedCallCount).to.eq(0)
+      expect(heartbeat._state.loopCount).to.eq(1)
       heartbeat._flush()
-      expect(heartbeat._state.reportedCallCount).to.eq(heartbeat._state.callCount)
+      expect(heartbeat._state.loopCount).to.eq(0)
     })
   })
 })
@@ -208,8 +208,8 @@ describe("Heartbeat", function(done) {
 // run integration tests against a production account
 if (process.env.MONITOR_API_KEY) {
   describe("Integration Tests", function() {
-    var monitor = new Monitor({apiKey: process.env.MONITOR_API_KEY})
-    var cronMonitor = {
+    const monitor = new Monitor({apiKey: process.env.MONITOR_API_KEY})
+    const cronMonitor = {
       "name": "Testing_Cronitor_Client_Cron",
       "type": "cron",
       "rules": [
@@ -219,7 +219,7 @@ if (process.env.MONITOR_API_KEY) {
           }
       ]
     }
-    var heartbeatMonitor = {
+    const heartbeatMonitor = {
       "name": "Testing_Cronitor_Client_Heartbeat",
       "type": "heartbeat_v2",
       "rules": [
@@ -303,12 +303,12 @@ if (process.env.MONITOR_API_KEY) {
 } else {
 
   describe("Monitor API ", function() {
-    var existingMonitorCode = null
-    var cronitor = null
+    const existingMonitorCode = null
+    const cronitor = null
 
     describe("Create Monitor", function() {
       context("with a valid apiKey", function() {
-        var monitor = new Monitor({apiKey})
+        const monitor = new Monitor({apiKey})
 
         it("should create a monitor", function(done) {
           nock('https://cronitor.io')
@@ -323,7 +323,7 @@ if (process.env.MONITOR_API_KEY) {
 
         context("with an invalid monitor payload", function() {
           it("should return a validation error", function() {
-            var invalidPayload = {...newMonitorFixture}
+            const invalidPayload = {...newMonitorFixture}
             delete invalidPayload['rules']
             nock('https://cronitor.io')
               .post('/v3/monitors')
@@ -335,6 +335,88 @@ if (process.env.MONITOR_API_KEY) {
                 expect(err.status).to.eq(400)
                 expect(err.data).to.eq({'name:': ["Name is required"]})
               })
+          })
+        })
+
+        context("Create Cron Monitor", function() {
+          it("should include an expression", function() {
+            expect(function() {
+              monitor.createCron({name: "New Cron"}).to.throw(new Error("'expression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}"))
+            })
+          })
+
+          it("should include a name", function() {
+            expect(function() {
+              monitor.createCron({expression: "* * * * *"}).to.throw(new Error("'name' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00'}"))
+            })
+          })
+
+          it("should validate notificationLists is an array", function() {
+            expect(function() {
+              monitor.createCron({
+                expression: "* * * * *",
+                name: "Test Cron",
+                notificationLists: "foo"
+              }).to.throw(new Error("'notificationLists' must be an array e.g. ['site-emergency']"))
+            })
+          })
+        })
+
+        context("Create Heartbeat Monitor", function() {
+          it("should include every or at key", function() {
+            expect(function() {
+              monitor.createHeartbeat({name: "test heartbeat"}).to.throw(new Error("missing required field 'every' or 'at'"))
+            })
+          })
+          it("should validate every is an Array", function() {
+            expect(function() {
+              monitor.createHeartbeat({name: "test heartbeat", every: ""}).to.throw(new Error("missing required field 'every' or 'at'"))
+            })
+          })
+          it("should validate every[0] is an integer", function() {
+            expect(function() {
+              monitor.createHeartbeat({name: "test heartbeat", every:["foo", "minute"]}).to.throw(new Error("'every[0]' must be an integer"))
+            })
+          })
+
+          it("should validate timeunit", function() {
+            expect(function() {
+              monitor.createHeartbeat({name: "test heartbeat", every:[1, "century"]}).to.throw
+            })
+          })
+
+          it("should pluralize timeunit", function() {
+            expect(function() {
+              monitor.createHeartbeat({name: "test heartbeat", every:[1, "century"]}).to.not.throw
+            })
+          })
+
+          it("should include a name", function() {
+            expect(function() {
+              monitor.createHeartbeat({every: [1, 'day']}).to.throw(new Error("'name' is a required field e.g. {name: 'Daily at 00:00'}"))
+            })
+          })
+
+          it("should validate at is a valid 24hr time of day", function() {
+            expect(function() {
+              monitor.createHeartbeat({at: '25:00'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
+            })
+            expect(function() {
+              monitor.createHeartbeat({at: '23:61'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
+            })
+            expect(function() {
+              monitor.createHeartbeat({at: 'foo'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
+            })
+          })
+
+          it("should validate notificationLists is an array", function() {
+            expect(function() {
+              monitor.createHeartbeat({
+                name: "Test Heartbeat",
+                every: [1, 'hour'],
+                notificationLists: "foo"
+              }).to.throw(new Error("'notificationLists' must be an array e.g. ['site-emergency']"))
+            })
           })
         })
       })
@@ -390,7 +472,6 @@ if (process.env.MONITOR_API_KEY) {
       })
 
       describe("Individual", function() {
-        var cronitor
         context("with a valid apiKey", function() {
           beforeEach(function(done) {
             nock('https://cronitor.io')
@@ -400,7 +481,7 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should retrieve a monitor", function(done) {
-            monitor = new Monitor({apiKey})
+            const monitor = new Monitor({apiKey})
             monitor.get(dummyId).then((res) => {
               expect(res['code']).to.eq(dummyId)
               done()
@@ -423,7 +504,7 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should update a monitor", function(done) {
-            var monitor = new Monitor({apiKey: apiKey})
+            const monitor = new Monitor({apiKey: apiKey})
             monitor.update(dummyId, newMonitorFixture).then((res) => {
               expect(res['code']).to.eq(dummyId)
               done()
@@ -432,7 +513,7 @@ if (process.env.MONITOR_API_KEY) {
         })
 
         context("and without monitor code", function(done) {
-          var monitor = new Monitor({apiKey})
+          const monitor = new Monitor({apiKey})
           it("should raise an exception", function (done) {
             expect(function() {
               monitor.update(null, {}).to.throw(new Error("You must provide a monitor code to update a monitor."))
@@ -455,7 +536,7 @@ if (process.env.MONITOR_API_KEY) {
           })
 
           it("should delete a monitor", function(done) {
-            var monitor = new Monitor({apiKey})
+            const monitor = new Monitor({apiKey})
             monitor.delete(dummyId).then((res) => {
               expect(res.status).to.eq(204)
               done()
@@ -464,10 +545,10 @@ if (process.env.MONITOR_API_KEY) {
         })
 
         context("and without monitor code", function(done) {
-          var cronitor = new Monitor({apiKey})
+          const cronitor = new Monitor({apiKey})
           it("should raise an exception", function (done) {
             expect(function() {
-              monitor.delete().to.throw(new Error("You must provide a monitor code to delete a monitor."))
+                monitor.delete().to.throw(new Error("You must provide a monitor code to delete a monitor."))
             })
             done()
           })
@@ -476,7 +557,7 @@ if (process.env.MONITOR_API_KEY) {
     })
 
     describe("Pause Endpoint", function() {
-      var monitor = new Monitor({apiKey})
+      const monitor = new Monitor({apiKey})
 
       it('calls pause correctly', function(done) {
         nock('https://cronitor.link')
