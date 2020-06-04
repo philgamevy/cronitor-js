@@ -5,7 +5,8 @@ const axios = require("axios")
 const MONITOR_API_URL = "https://cronitor.io/v3/monitors"
 const PING_API_URL = "https://cronitor.link"
 
-function Monitor(options) {
+function Monitor(options={}) {
+  if(!options.apiKey) throw new Error("You must provide an apiKey.")
   this.apiKey = options.apiKey || null
   axios.defaults.headers.common['Authorization'] = 'Basic ' + new Buffer(this.apiKey + ':').toString('base64')
 }
@@ -21,7 +22,7 @@ Monitor.prototype.create = withApiValidation(function(obj) {
   return axios
     .post(MONITOR_API_URL, obj)
     .then((res) => {
-      this.monitorCode = res.data.code
+      this.monitorId = res.data.code
       return res.data
     })
     .catch((err) => {
@@ -153,9 +154,10 @@ Monitor.prototype.filter = withApiValidation(function(params) {
 * @return {Object} monitor
 */
 
-Monitor.prototype.get = withApiValidation(function(monitorCode) {
+Monitor.prototype.get = withApiValidation(function(monitorId) {
+  if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
-    .get(`${MONITOR_API_URL}/${monitorCode}`)
+    .get(`${MONITOR_API_URL}/${monitorId}`)
     .then((res) => {
       return res.data
     })
@@ -173,9 +175,10 @@ Monitor.prototype.get = withApiValidation(function(monitorCode) {
 * @return {Promise} Promise object
 */
 
-Monitor.prototype.update = withApiValidation(function(monitorCode, obj) {
+Monitor.prototype.update = withApiValidation(function(monitorId, obj) {
+  if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
-    .put(`${MONITOR_API_URL}/${monitorCode}`, obj)
+    .put(`${MONITOR_API_URL}/${monitorId}`, obj)
     .then((res) => {
       return res.data
     })
@@ -191,8 +194,9 @@ Monitor.prototype.update = withApiValidation(function(monitorCode, obj) {
 * @return { Promise } Promise
 */
 
-Monitor.prototype.pause = function(monitorCode, time) {
-  var pauseURL = `${PING_API_URL}/${monitorCode}/pause/${time}?auth_key=${this.apiKey}`
+Monitor.prototype.pause = function(monitorId, time) {
+  if (!monitorId) throw new Error("You must provide a monitorId.")
+  var pauseURL = `${PING_API_URL}/${monitorId}/pause/${time}?auth_key=${this.apiKey}`
   return axios.get(pauseURL)
 }
 
@@ -202,8 +206,9 @@ Monitor.prototype.pause = function(monitorCode, time) {
 * @params { String } monitor code
 */
 
-Monitor.prototype.unpause = function(monitorCode) {
-  var pauseURL = `${PING_API_URL}/${monitorCode}/pause/0?auth_key=${this.apiKey}`
+Monitor.prototype.unpause = function(monitorId) {
+  if (!monitorId) throw new Error("You must provide a monitorId.")
+  var pauseURL = `${PING_API_URL}/${monitorId}/pause/0?auth_key=${this.apiKey}`
   return axios.get(pauseURL)
 }
 
@@ -216,9 +221,10 @@ Monitor.prototype.unpause = function(monitorCode) {
 * @return { Promise } Promise object
 */
 
-Monitor.prototype.delete = withApiValidation(function(monitorCode) {
+Monitor.prototype.delete = withApiValidation(function(monitorId) {
+  if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
-    .delete(`${MONITOR_API_URL}/${monitorCode}`)
+    .delete(`${MONITOR_API_URL}/${monitorId}`)
     .catch((err) => {
       return err.response
     })
@@ -263,12 +269,10 @@ Heartbeat.prototype._flush = function() {
 
 /** PING API **/
 
-function Ping(options) {
+function Ping(options={}) {
   if (typeof options === 'string') options = {monitorId: options}
+  if (!options.monitorId) throw new Error("You must provide a monitorId.")
   this.monitorId = options.monitorId
-  if (!this.monitorId) {
-    new Error("You must initialize a Ping object with a monitorId.")
-  }
   this.apiKey = options.apiKey || null
 }
 

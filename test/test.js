@@ -90,12 +90,10 @@ describe('Ping API', function() {
     })
   })
 
-  context("without a monitorId", function(done) {
-    it("should raise an exception", function (done) {
-      expect(function() {
-        new Ping().to.throw(new Error("You must provide a monitorId."))
-      })
-      done()
+  context("without a monitorId", function() {
+    it("should raise an exception", function () {
+      let fnc = function() { new Ping() };
+      expect(fnc).to.throw("You must provide a monitorId.")
     })
   })
 })
@@ -125,9 +123,8 @@ describe("Heartbeat", function(done) {
 
     context("when no monitorId is provided", function() {
       it("should raise an exception if a monitorId is not provided", function() {
-        expect(function() {
-          new Heartbeat().to.throw(new Error("You must initialize Heartbeat with a monitorId."))
-        })
+        let fnc = function() { new Heartbeat() }
+        expect(fnc).to.throw("You must initialize Heartbeat with a monitorId.")
       })
     })
     context("when monitorId is passed as a string", function() {
@@ -156,6 +153,8 @@ describe("Heartbeat", function(done) {
       expect(heartbeat._state.loopCount).to.eq(2)
       heartbeat.tick(0)
       expect(heartbeat._state.loopCount).to.eq(2)
+      heartbeat.tick(5)
+      expect(heartbeat._state.loopCount).to.eq(7)
     })
   })
 
@@ -268,7 +267,7 @@ if (process.env.MONITOR_API_KEY) {
     })
 
     it("should create a heartbeat monitor with the every syntax", function(done) {
-      monitor.createHeartbeat({
+      monitor.createHeartbeat.bind(monitor, {
         name: "Queue Worker Heartbeat",
         every: [5, 'minutes'],
         notificationLists: ['site-emergency'],
@@ -285,7 +284,7 @@ if (process.env.MONITOR_API_KEY) {
     })
 
     it("should create a heartbeat monitor with the at syntax", function(done) {
-      monitor.createHeartbeat({
+      monitor.createHeartbeat.bind(monitor, {
         name: "Not pinged at 12:05",
         at: '00:00',
         notificationLists: ['site-emergency'],
@@ -340,93 +339,66 @@ if (process.env.MONITOR_API_KEY) {
 
         context("Create Cron Monitor", function() {
           it("should include an expression", function() {
-            expect(function() {
-              monitor.createCron({name: "New Cron"}).to.throw(new Error("'expression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}"))
-            })
+            expect(monitor.createCron.bind(monitor, {name: "New Cron"})).to.throw("'expression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}")
           })
 
           it("should include a name", function() {
-            expect(function() {
-              monitor.createCron({expression: "* * * * *"}).to.throw(new Error("'name' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00'}"))
-            })
+            expect(monitor.createCron.bind(monitor, {expression: "* * * * *"})).to.throw("'name' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00'}")
           })
 
           it("should validate notificationLists is an array", function() {
-            expect(function() {
-              monitor.createCron({
-                expression: "* * * * *",
+            expect(
+              monitor.createCron.bind(monitor, {expression: "* * * * *",
                 name: "Test Cron",
                 notificationLists: "foo"
-              }).to.throw(new Error("'notificationLists' must be an array e.g. ['site-emergency']"))
-            })
+              })).to.throw("'notificationLists' must be an array e.g. ['site-emergency']")
           })
         })
 
         context("Create Heartbeat Monitor", function() {
           it("should include every or at key", function() {
-            expect(function() {
-              monitor.createHeartbeat({name: "test heartbeat"}).to.throw(new Error("missing required field 'every' or 'at'"))
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat"})).to.throw("missing required field 'every' or 'at'")
           })
           it("should validate every is an Array", function() {
-            expect(function() {
-              monitor.createHeartbeat({name: "test heartbeat", every: ""}).to.throw(new Error("missing required field 'every' or 'at'"))
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every: ""})).to.throw("missing required field 'every' or 'at'")
           })
           it("should validate every[0] is an integer", function() {
-            expect(function() {
-              monitor.createHeartbeat({name: "test heartbeat", every:["foo", "minute"]}).to.throw(new Error("'every[0]' must be an integer"))
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every:["foo", "minute"]})).to.throw("'every[0]' must be an integer")
           })
 
           it("should validate timeunit", function() {
-            expect(function() {
-              monitor.createHeartbeat({name: "test heartbeat", every:[1, "century"]}).to.throw
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every:[1, "century"]})).to.throw
           })
 
           it("should pluralize timeunit", function() {
-            expect(function() {
-              monitor.createHeartbeat({name: "test heartbeat", every:[1, "century"]}).to.not.throw
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every:[1, "century"]})).not.to.throw
           })
 
           it("should include a name", function() {
-            expect(function() {
-              monitor.createHeartbeat({every: [1, 'day']}).to.throw(new Error("'name' is a required field e.g. {name: 'Daily at 00:00'}"))
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {every: [1, 'day']})).to.throw("'name' is a required field e.g. {name: 'Daily at 00:00'}")
           })
 
           it("should validate at is a valid 24hr time of day", function() {
-            expect(function() {
-              monitor.createHeartbeat({at: '25:00'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
-            })
-            expect(function() {
-              monitor.createHeartbeat({at: '23:61'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
-            })
-            expect(function() {
-              monitor.createHeartbeat({at: 'foo'}).to.throw(new Error("invalid 'at' value. must use format 'HH:MM'"))
-            })
+            expect(monitor.createHeartbeat.bind(monitor, {at: '25:00'})).to.throw("invalid 'at' value. must use format 'HH:MM'")
+            expect(monitor.createHeartbeat.bind(monitor, {at: '23:61'})).to.throw("invalid 'at' value. must use format 'HH:MM'")
+            expect(monitor.createHeartbeat.bind(monitor, {at: 'foo'})).to.throw("invalid 'at' value. must use format 'HH:MM'")
           })
 
           it("should validate notificationLists is an array", function() {
-            expect(function() {
-              monitor.createHeartbeat({
+            expect(
+              monitor.createHeartbeat.bind(monitor, {
                 name: "Test Heartbeat",
                 every: [1, 'hour'],
                 notificationLists: "foo"
-              }).to.throw(new Error("'notificationLists' must be an array e.g. ['site-emergency']"))
-            })
+            })).to.throw("'notificationLists' must be an array e.g. ['site-emergency']")
           })
         })
       })
 
-      context("without a apiKey", function(done) {
-        it("should raise an exception", function (done) {
-          expect(function() {
-            new Monitor({code: dummyId}).to.throw(new Error("You must provide a apiKey to create a monitor."))
-          })
-          done()
+      context("without a apiKey", function() {
+        it("should raise an exception", function () {
+          let fnc = function() { new Monitor({monitorId: dummyId})}
+          expect(fnc).to.throw("You must provide an apiKey.")
         })
       })
     })
@@ -515,9 +487,7 @@ if (process.env.MONITOR_API_KEY) {
         context("and without monitor code", function(done) {
           const monitor = new Monitor({apiKey})
           it("should raise an exception", function (done) {
-            expect(function() {
-              monitor.update(null, {}).to.throw(new Error("You must provide a monitor code to update a monitor."))
-            })
+            expect(monitor.update).to.throw("You must provide a monitorId.")
             done()
           })
         })
@@ -545,12 +515,9 @@ if (process.env.MONITOR_API_KEY) {
         })
 
         context("and without monitor code", function(done) {
-          const cronitor = new Monitor({apiKey})
-          it("should raise an exception", function (done) {
-            expect(function() {
-                monitor.delete().to.throw(new Error("You must provide a monitor code to delete a monitor."))
-            })
-            done()
+          const monitor = new Monitor({apiKey})
+          it("should raise an exception", function () {
+            expect(monitor.delete).to.throw("You must provide a monitorId.")
           })
         })
       })
