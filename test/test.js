@@ -353,6 +353,23 @@ if (process.env.MONITOR_API_KEY) {
                 notificationLists: "foo"
               })).to.throw("'notificationLists' must be an array e.g. ['site-emergency']")
           })
+
+          it("should call create with the correct parameters", function() {
+            let spy = sinon.spy(monitor, 'create')
+            monitor.createCron({name: "Test Cron", expression: '* * * * *'})
+            expect(spy).to.have.been.calledWith({
+              name: "Test Cron",
+              type: "cron",
+              rules: [
+                {
+                  rule_type: "not_on_schedule",
+                  value: '* * * * *',
+                  grace_seconds: null
+                }
+              ]
+            })
+            spy.restore()
+          })
         })
 
         context("Create Heartbeat Monitor", function() {
@@ -391,6 +408,24 @@ if (process.env.MONITOR_API_KEY) {
                 every: [1, 'hour'],
                 notificationLists: "foo"
             })).to.throw("'notificationLists' must be an array e.g. ['site-emergency']")
+          })
+
+          it("should call create with the correct parameters", function() {
+            let spy = sinon.spy(monitor, 'create')
+            monitor.createHeartbeat({name: "Test Heartbeat", every: [1, 'hour']})
+            expect(spy).to.have.been.calledWith({
+              name: "Test Heartbeat",
+              type: "heartbeat_v2",
+              rules: [
+                {
+                  rule_type: "run_ping_not_received",
+                  value: 1,
+                  time_unit: 'hours',
+                  grace_seconds: null
+                }
+              ]
+            })
+            spy.restore()
           })
         })
       })
