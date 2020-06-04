@@ -81,7 +81,7 @@ Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
     throw new Error("missing required field 'every' or 'at'")
 
   if (config.every && !Array.isArray(config.every))
-    throw new Error("'every' is a required field e.g. {every: [60, 'seconds']}")
+    throw new Error("'every' must be an array e.g. {every: [60, 'seconds']}")
 
   if (config.every && !Number.isInteger(config.every[0]))
     throw new Error("'every[0]' must be an integer")

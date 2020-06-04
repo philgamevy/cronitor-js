@@ -377,7 +377,7 @@ if (process.env.MONITOR_API_KEY) {
             expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat"})).to.throw("missing required field 'every' or 'at'")
           })
           it("should validate every is an Array", function() {
-            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every: ""})).to.throw("missing required field 'every' or 'at'")
+            expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every: "minute"})).to.throw("'every' must be an array e.g. {every: [60, 'seconds']")
           })
           it("should validate every[0] is an integer", function() {
             expect(monitor.createHeartbeat.bind(monitor, {name: "test heartbeat", every:["foo", "minute"]})).to.throw("'every[0]' must be an integer")
@@ -412,10 +412,11 @@ if (process.env.MONITOR_API_KEY) {
 
           it("should call create with the correct parameters", function() {
             let spy = sinon.spy(monitor, 'create')
-            monitor.createHeartbeat({name: "Test Heartbeat", every: [1, 'hour']})
+            monitor.createHeartbeat({name: "Test Heartbeat", every: [1, 'hour'], notificationLists: ["site-ops"]})
             expect(spy).to.have.been.calledWith({
               name: "Test Heartbeat",
               type: "heartbeat_v2",
+              notifications: { templates: ["site-ops"] },
               rules: [
                 {
                   rule_type: "run_ping_not_received",
