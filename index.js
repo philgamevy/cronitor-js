@@ -18,7 +18,7 @@ function Monitor(options={}) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Monitor.prototype.create = withApiValidation(function(obj) {
+Monitor.prototype.create = function(obj) {
   return axios
     .post(MONITOR_API_URL, obj)
     .then((res) => {
@@ -28,7 +28,7 @@ Monitor.prototype.create = withApiValidation(function(obj) {
     .catch((err) => {
       return err.response
     })
-})
+}
 
 /****
 * Create a new cron job monitor
@@ -39,7 +39,7 @@ Monitor.prototype.create = withApiValidation(function(obj) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Monitor.prototype.createCron = withApiValidation(function(config = {}) {
+Monitor.prototype.createCron = function(config = {}) {
   if (!config.expression)
     throw new Error("'expression' is a required field e.g. {expression: '0 0 * * *', name: 'Daily at 00:00}")
   if (!config.name || !config.name.length)
@@ -63,7 +63,7 @@ Monitor.prototype.createCron = withApiValidation(function(config = {}) {
     params['notifications'] = {templates: config.notificationLists}
 
   return this.create(params)
-})
+}
 
 /****
 * Create a new heartbeat monitor
@@ -74,7 +74,7 @@ Monitor.prototype.createCron = withApiValidation(function(config = {}) {
 * @returns {Promise} Promise (err, body)
 *
 */
-Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
+Monitor.prototype.createHeartbeat = function(config = {}) {
   let timeUnits = ['seconds', 'minutes', 'hours', 'days', 'weeks']
 
   if (!config.every && !config.at)
@@ -128,7 +128,7 @@ Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
     params['notifications'] = {templates: config.notificationLists}
 
   return this.create(params)
-})
+}
 
 /**
 * Retrieve a set of monitors
@@ -136,7 +136,7 @@ Monitor.prototype.createHeartbeat = withApiValidation(function(config = {}) {
 * @returns {Object} Array of monitors
 *
 */
-Monitor.prototype.filter = withApiValidation(function(params) {
+Monitor.prototype.filter = function(params) {
   return axios
     .get(MONITOR_API_URL, {params})
     .then((res) => {
@@ -145,7 +145,7 @@ Monitor.prototype.filter = withApiValidation(function(params) {
     .catch((err) => {
       return err.response
     })
-})
+}
 
 
 /**
@@ -154,7 +154,7 @@ Monitor.prototype.filter = withApiValidation(function(params) {
 * @return {Object} monitor
 */
 
-Monitor.prototype.get = withApiValidation(function(monitorId) {
+Monitor.prototype.get = function(monitorId) {
   if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
     .get(`${MONITOR_API_URL}/${monitorId}`)
@@ -165,7 +165,7 @@ Monitor.prototype.get = withApiValidation(function(monitorId) {
       return err.response
     })
 
-})
+}
 
 
 /**
@@ -175,7 +175,7 @@ Monitor.prototype.get = withApiValidation(function(monitorId) {
 * @return {Promise} Promise object
 */
 
-Monitor.prototype.update = withApiValidation(function(monitorId, obj) {
+Monitor.prototype.update = function(monitorId, obj) {
   if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
     .put(`${MONITOR_API_URL}/${monitorId}`, obj)
@@ -185,7 +185,7 @@ Monitor.prototype.update = withApiValidation(function(monitorId, obj) {
     .catch((err) => {
       return err.response
     })
-})
+}
 
 /**
 * Pause  monitor
@@ -221,14 +221,14 @@ Monitor.prototype.unpause = function(monitorId) {
 * @return { Promise } Promise object
 */
 
-Monitor.prototype.delete = withApiValidation(function(monitorId) {
+Monitor.prototype.delete = function(monitorId) {
   if (!monitorId) throw new Error("You must provide a monitorId.")
   return axios
     .delete(`${MONITOR_API_URL}/${monitorId}`)
     .catch((err) => {
       return err.response
     })
-})
+}
 
 
 function Heartbeat(options={}) {
@@ -236,22 +236,25 @@ function Heartbeat(options={}) {
   if (!options.monitorId)
     throw new Error("You must initialize Heartbeat with a monitorId.")
 
-  this._state = { loopCount: 0 }
+  this._state = { tickCount: 0, errorCount: 0}
   this._ping = new Ping(options)
   this.intervalSeconds = Math.max(options.intervalSeconds || 60, 10)
   this.intervalId = setInterval(this._flush.bind(this), this.intervalSeconds * 1000)
 }
 
 Heartbeat.prototype.tick = function(count=1) {
-  this._state.loopCount += count
+  this._state.tickCount += count
+}
+
+Heartbeat.prototype.error = function(count=1) {
+  this._state.errorCount += 1
 }
 
 Heartbeat.prototype.stop = function() {
   clearInterval(this.intervalId)
   this.intervalId = null
-  if (this._state.loopCount > 0) {
+  if (this._state.tickCount > 0 || this._state.errorCount > 0)
     this._flush()
-  }
 }
 
 Heartbeat.prototype.fail = function() {
@@ -260,10 +263,11 @@ Heartbeat.prototype.fail = function() {
 }
 
 Heartbeat.prototype._flush = function() {
-  // reset loop count to 0 each time we flush
-  const loopCount = this._state.loopCount
-  this._state.loopCount = 0
-  this._ping.tick({count: loopCount, duration: this.intervalSeconds})
+  const tickCount = this._state.tickCount
+  const errorCount = this._state.errorCount
+  this._state.tickCount = 0
+  this._state.errorCount = 0
+  this._ping.tick({errorCount, count: tickCount, duration: this.intervalSeconds})
 }
 
 
@@ -291,23 +295,16 @@ ENDPOINTS.forEach((endpoint) => {
 })
 
 
-/** Utitly Functions **/
-function withApiValidation(func) {
-  if (!this.apiKey) new Error("You must initialize your Monitor with an apiKey to call this method.")
-  return func
-}
-
-
-function cleanParams(params) {
-  params = params || {}
+function cleanParams(params={}) {
   let allowedParams = {
     msg: typeof params === 'string' ? params : params.message ? params.message : null,
     count: params.count || null,
+    error_count: params.errorCount || null,
     env: params.env || null,
     duration: params.duration || null,
     host: params.host ||  null,
     series: params.series || null,
-    auth_key: this.apiKey
+    auth_key: params.apiKey || this.apiKey
   }
   Object.keys(allowedParams).forEach((key) => (allowedParams[key] == null) && delete allowedParams[key])
   return allowedParams

@@ -11,9 +11,7 @@ chai.use(sinonChai)
 
 const { Monitor, Ping, Heartbeat } = require('../index')
 const pingApiKey = '12345'
-const authQs = '?auth_key=' + pingApiKey
-const msg = 'a message'
-const dummyId = 'd3x0c1'
+const fakeId = 'd3x0c1'
 const baseUrl = 'https://cronitor.link'
 const apiKey = '1337hax0r'
 
@@ -42,21 +40,25 @@ const newMonitorFixture = {
 }
 
 describe('Ping API', function() {
-  const ping = new Ping({monitorId: dummyId})
-  const pingAuthed = new Ping({monitorId: dummyId, apiKey: pingApiKey})
+  const ping = new Ping({monitorId: fakeId})
+  const pingAuthed = new Ping({monitorId: fakeId, apiKey: pingApiKey})
   const endpoints = ['run', 'complete', 'fail', 'tick', 'ok']
+  const validParams = {
+    message: "hello there",
+    count: 1,
+    errorCount: 1,
+    env: "production",
+    duration: 100,
+    host: '10-0-0-223',
+    series: 'world',
+    apiKey: pingApiKey
+  }
 
   endpoints.forEach((endpoint) => {
     context(`${endpoint.toUpperCase()} Endpoint`, function() {
       beforeEach(function(done) {
         nock('https://cronitor.link')
-          .get(`/${dummyId}/${endpoint}`)
-          .reply(200)
-          .get(`/${dummyId}/${endpoint}?msg=${msg}`)
-          .reply(200)
-          .get(`/${dummyId}/${endpoint}?auth_key=${pingApiKey}`)
-          .reply(200)
-
+          .get(`/${fakeId}/${endpoint}`).query(true).reply(200)
         done()
       })
 
@@ -73,9 +75,17 @@ describe('Ping API', function() {
       })
 
       it(`calls ${endpoint} correctly with message`, function(done) {
-        ping[endpoint](msg).then((res) => {
+        ping[endpoint](validParams.message).then((res) => {
           expect(res.status).to.eq(200)
-          expect(res.config.url).to.contain(`?msg=a%20message`)
+          expect(res.config.url).to.contain(`?msg=hello%20there`)
+          done()
+        })
+      })
+
+      it(`calls ${endpoint} correctly with all params`, function(done) {
+        ping[endpoint](validParams).then((res) => {
+          expect(res.status).to.eq(200)
+          expect(res.config.url).to.contain(`?msg=hello%20there&count=1&error_count=1&env=production&duration=100&host=10-0-0-223&series=world&auth_key=12345`)
           done()
         })
       })
@@ -103,21 +113,21 @@ describe("Heartbeat", function(done) {
   let heartbeat, clock
   beforeEach(function() {
     clock = sinon.useFakeTimers();
-    heartbeat = new Heartbeat({monitorId: dummyId})
+    heartbeat = new Heartbeat({monitorId: fakeId})
   })
   afterEach(function() {
     clock.restore()
   })
   context("constructor", function() {
     it("should set initial values", function() {
-        expect(heartbeat._state.loopCount).to.eq(0)
+        expect(heartbeat._state.tickCount).to.eq(0)
         expect(heartbeat._ping).to.be.instanceOf(Ping)
         expect(heartbeat.intervalSeconds).to.eq(60)
         expect(heartbeat.intervalId).to.exist
     })
 
     it("should set intervalSeconds to provided value", function() {
-      heartbeat = new Heartbeat({intervalSeconds: 30, monitorId: dummyId})
+      heartbeat = new Heartbeat({intervalSeconds: 30, monitorId: fakeId})
       expect(heartbeat.intervalSeconds).to.eq(30)
     })
 
@@ -129,8 +139,8 @@ describe("Heartbeat", function(done) {
     })
     context("when monitorId is passed as a string", function() {
       it("should use defaults", function() {
-        heartbeat = new Heartbeat(dummyId)
-        expect(heartbeat._state.loopCount).to.eq(0)
+        heartbeat = new Heartbeat(fakeId)
+        expect(heartbeat._state.tickCount).to.eq(0)
         expect(heartbeat._ping).to.be.instanceOf(Ping)
         expect(heartbeat.intervalSeconds).to.eq(60)
         expect(heartbeat.intervalId).to.exist
@@ -139,22 +149,22 @@ describe("Heartbeat", function(done) {
 
     context("when an apiKey is passed", function() {
       it("should include auth_key in the api call", function() {
-        heartbeat = new Heartbeat({monitorId: dummyId})
+        heartbeat = new Heartbeat({monitorId: fakeId})
       })
     })
   })
 
   context("tick", function() {
     it("should increase the called count", function() {
-      expect(heartbeat._state.loopCount).to.eq(0)
+      expect(heartbeat._state.tickCount).to.eq(0)
       heartbeat.tick()
-      expect(heartbeat._state.loopCount).to.eq(1)
+      expect(heartbeat._state.tickCount).to.eq(1)
       heartbeat.tick()
-      expect(heartbeat._state.loopCount).to.eq(2)
+      expect(heartbeat._state.tickCount).to.eq(2)
       heartbeat.tick(0)
-      expect(heartbeat._state.loopCount).to.eq(2)
+      expect(heartbeat._state.tickCount).to.eq(2)
       heartbeat.tick(5)
-      expect(heartbeat._state.loopCount).to.eq(7)
+      expect(heartbeat._state.tickCount).to.eq(7)
     })
   })
 
@@ -189,17 +199,26 @@ describe("Heartbeat", function(done) {
       pingTick = sinon.spy(heartbeat._ping, 'tick')
       heartbeat.tick()
       heartbeat._flush()
-      expect(pingTick).to.have.been.called
-      // TODO
-      // expect(pingTick).to.have.been.calledWith({count: 1, duration: heartbeat.intervalSeconds})
+      expect(pingTick).to.have.been.calledWith({count: 1, duration: heartbeat.intervalSeconds, errorCount: 0})
     })
 
-    it("should reset the loopCount", function() {
+    it("should ping tick with number of errors reported", function() {
+      pingTick = sinon.spy(heartbeat._ping, 'tick')
+      heartbeat.error()
+      heartbeat._flush()
+      // expect(pingTick).to.have.been.called
+      expect(pingTick).to.have.been.calledWith({count: 0, duration: heartbeat.intervalSeconds, errorCount: 1})
+    })
+
+    it("should reset the tickCount and errorCount", function() {
       let stub = sinon.stub(heartbeat._ping, 'tick').returnsPromise().resolves({})
       heartbeat.tick()
-      expect(heartbeat._state.loopCount).to.eq(1)
+      expect(heartbeat._state.tickCount).to.eq(1)
+      heartbeat.error()
+      expect(heartbeat._state.errorCount).to.eq(1)
       heartbeat._flush()
-      expect(heartbeat._state.loopCount).to.eq(0)
+      expect(heartbeat._state.tickCount).to.eq(0)
+      expect(heartbeat._state.errorCount).to.eq(0)
     })
   })
 })
@@ -312,10 +331,10 @@ if (process.env.MONITOR_API_KEY) {
         it("should create a monitor", function(done) {
           nock('https://cronitor.io')
             .post('/v3/monitors')
-            .reply(201, {...newMonitorFixture, code: dummyId})
+            .reply(201, {...newMonitorFixture, code: fakeId})
 
             monitor.create(newMonitorFixture).then((res) => {
-            expect(res['code']).to.eq(dummyId)
+            expect(res['code']).to.eq(fakeId)
             done()
           })
         })
@@ -433,7 +452,7 @@ if (process.env.MONITOR_API_KEY) {
 
       context("without a apiKey", function() {
         it("should raise an exception", function () {
-          let fnc = function() { new Monitor({monitorId: dummyId})}
+          let fnc = function() { new Monitor({monitorId: fakeId})}
           expect(fnc).to.throw("You must provide an apiKey.")
         })
       })
@@ -453,11 +472,11 @@ if (process.env.MONITOR_API_KEY) {
           it("should retrieve a list of monitors", function(done) {
             nock('https://cronitor.io')
               .get('/v3/monitors')
-              .reply(200, {monitors: [{...newMonitorFixture, code: dummyId}, {...newMonitorFixture, code: "foo"}]})
+              .reply(200, {monitors: [{...newMonitorFixture, code: fakeId}, {...newMonitorFixture, code: "foo"}]})
 
             monitor.filter().then((res) => {
               expect(res.monitors.length).to.eq(2)
-              expect(res.monitors[0].code).to.eq(dummyId)
+              expect(res.monitors[0].code).to.eq(fakeId)
               expect(res.monitors[1].code).to.eq("foo")
               done()
             })
@@ -466,12 +485,12 @@ if (process.env.MONITOR_API_KEY) {
           it("should fetch the specified page of data", function(done) {
             nock('https://cronitor.io')
               .get('/v3/monitors?page=2')
-              .reply(200, {page: 2, monitors: [{...newMonitorFixture, code: dummyId}, {...newMonitorFixture, code: "foo"}]})
+              .reply(200, {page: 2, monitors: [{...newMonitorFixture, code: fakeId}, {...newMonitorFixture, code: "foo"}]})
 
             monitor.filter({page: 2}).then((res) => {
               expect(res.page).to.eq(2)
               expect(res.monitors.length).to.eq(2)
-              expect(res.monitors[0].code).to.eq(dummyId)
+              expect(res.monitors[0].code).to.eq(fakeId)
               expect(res.monitors[1].code).to.eq("foo")
               done()
             })
@@ -483,15 +502,15 @@ if (process.env.MONITOR_API_KEY) {
         context("with a valid apiKey", function() {
           beforeEach(function(done) {
             nock('https://cronitor.io')
-              .get('/v3/monitors/' + dummyId)
-              .reply(200, {...newMonitorFixture, code: dummyId})
+              .get('/v3/monitors/' + fakeId)
+              .reply(200, {...newMonitorFixture, code: fakeId})
             done()
           })
 
           it("should retrieve a monitor", function(done) {
             const monitor = new Monitor({apiKey})
-            monitor.get(dummyId).then((res) => {
-              expect(res['code']).to.eq(dummyId)
+            monitor.get(fakeId).then((res) => {
+              expect(res['code']).to.eq(fakeId)
               done()
             })
 
@@ -506,15 +525,15 @@ if (process.env.MONITOR_API_KEY) {
         context("and monitor code", function() {
           beforeEach(function(done){
             nock('https://cronitor.io')
-              .put('/v3/monitors/'+ dummyId)
-              .reply(200, {...newMonitorFixture, code: dummyId})
+              .put('/v3/monitors/'+ fakeId)
+              .reply(200, {...newMonitorFixture, code: fakeId})
             done()
           })
 
           it("should update a monitor", function(done) {
             const monitor = new Monitor({apiKey: apiKey})
-            monitor.update(dummyId, newMonitorFixture).then((res) => {
-              expect(res['code']).to.eq(dummyId)
+            monitor.update(fakeId, newMonitorFixture).then((res) => {
+              expect(res['code']).to.eq(fakeId)
               done()
             })
           })
@@ -536,14 +555,14 @@ if (process.env.MONITOR_API_KEY) {
         context("and monitor code", function() {
           beforeEach(function(done){
             nock('https://cronitor.io')
-              .delete('/v3/monitors/'+ dummyId)
+              .delete('/v3/monitors/'+ fakeId)
               .reply(204)
             done()
           })
 
           it("should delete a monitor", function(done) {
             const monitor = new Monitor({apiKey})
-            monitor.delete(dummyId).then((res) => {
+            monitor.delete(fakeId).then((res) => {
               expect(res.status).to.eq(204)
               done()
             })
@@ -564,10 +583,10 @@ if (process.env.MONITOR_API_KEY) {
 
       it('calls pause correctly', function(done) {
         nock('https://cronitor.link')
-          .get(`/${dummyId}/pause/5?auth_key=${monitor.apiKey}`)
+          .get(`/${fakeId}/pause/5?auth_key=${monitor.apiKey}`)
             .reply(200)
 
-          monitor.pause(dummyId, 5).then((res) => {
+          monitor.pause(fakeId, 5).then((res) => {
           expect(res.status).to.eq(200)
           done()
         })
@@ -575,9 +594,9 @@ if (process.env.MONITOR_API_KEY) {
 
       it('calls unpause correctly', function(done) {
         nock('https://cronitor.link')
-            .get(`/${dummyId}/pause/0?auth_key=${monitor.apiKey}`)
+            .get(`/${fakeId}/pause/0?auth_key=${monitor.apiKey}`)
             .reply(200)
-        monitor.unpause(dummyId).then((res) => {
+        monitor.unpause(fakeId).then((res) => {
           expect(res.status).to.eq(200)
           done()
         })

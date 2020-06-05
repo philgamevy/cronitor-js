@@ -4,7 +4,7 @@
 
 Cronitor provides continuous monitoring for cron jobs, daemons, data pipelines, queue workers, and anything else that anything that can send or receive an HTTP request.
 
-If you are unfamiliar with Cronitor, our [Cron Monitoring Guide](https://cronitor.io/docs/cron-job-monitoring), [Heartbeat Monitoring Guide](https://cronitor.io/docs/heartbeat-monitoring) and [Ping API Reference](https://cronitor.io/docs/ping-api) are a great place to start.
+If you are unfamiliar with Cronitor, read our [Cron Monitoring](https://cronitor.io/docs/cron-job-monitoring) or [Heartbeat Monitoring](https://cronitor.io/docs/heartbeat-monitoring) guide.
 
 Cronitor-JS provides three separate modules:
 - [Ping](#ping) - Standard integration with Cronitor.
@@ -15,7 +15,9 @@ Cronitor-JS provides three separate modules:
 `npm install cronitor`
 
 ## <a name="ping"></a>Ping
-A Ping object allows you to flexibly integrate Cronitor into your task system. The example below uses [NodeCron](https://github.com/node-cron/node-cron) to demonstrate how to use Ping
+Use a Ping object to integrate your job with Cronitor. The [Ping API Reference](https://cronitor.io/docs/ping-api) has further information about the API Ping uses.
+
+The example below uses [NodeCron](https://github.com/node-cron/node-cron) to demonstrate how to use Ping.
 
 ```javascript
 const Cron = require('node-cron');
@@ -31,7 +33,7 @@ Cron.schedule('*/5 * * * *', () => {
 });
 
 
-// API matches Ping API https://cronitor.io/docs/ping-api
+//
 ping.run() // the job has started running
 ping.complete() // the job has completed successfully
 ping.fail() // the job has failed
@@ -53,19 +55,31 @@ ping.complete({
 })
 ```
 ## <a name="heartbeat">Heartbeat
-A Heartbeat object is a special integration for daemons, control loops, or other long running processes. It provides a single `tick` method that is used to indicate that a process is still running. The interval at which the `tick` counts are flushed to Cronitor is configurable (default 60 seconds).
+A Heartbeat object is a special integration for daemons, control loops, or other long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. The interval at which the `tick` counts are flushed to Cronitor is configurable (default 60 seconds).
+
+The following example uses [sqs-consumer](https://github.com/bbc/sqs-consumer) to demonstrate using heartbeat to demonstrate
 
 ```javascript
-// if authenticated pings are enabled, add your apiKey when creating a Ping object
-const heartbeat = new Heartbeart({monitorId: 'd3x0c1',
+const { Consumer } = require('sqs-consumer');
+const { Heartbeat } = require('cronitor');
+// if authenticated pings are enabled, add your apiKey when creating a Heartbeat object
+const heartbeat = new Heartbeart({monitorId: 'd3x0c1', intervalSeconds: 30});
 
-// optional params can be passed as an object the following params are allowed
-ping.complete({
-    env: '', // the environment this is running in (development, staging, production)
-    host: '' // the hostname of machine running this command
-    message: '', // optional message that will be displayed in alerts and on your dashboard.
-    duration: '' // override cronitor's duration calculation with your own recorded value. ignored on non `complete` calls
-})
+const app = Consumer.create({
+  queueUrl: 'https://sqs.eu-west-1.amazonaws.com/account-id/queue-name',
+  handleMessage: async (message) => {
+    // do some work with `message`
+    heartbeat.tick();
+  }
+});
+
+app.on('error', (err) => {
+  heartbeat.error({message: err.message}); // report an error occurred
+});
+
+app.on('empty', () => heartbeat.tick()); // the queue is empty, but we're still ticking!
+
+app.start();
 ```
 
 ## <a name="monitor"></a>Monitor
