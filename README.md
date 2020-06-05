@@ -67,6 +67,7 @@ const heartbeat = new Heartbeart({monitorId: 'd3x0c1', intervalSeconds: 30});
 
 const app = Consumer.create({
   queueUrl: 'https://sqs.eu-west-1.amazonaws.com/account-id/queue-name',
+  pollingWaitTimeMs: 100 // duration to wait before repolling the queue (defaults to 0).
   handleMessage: async (message) => {
     // do some work with `message`
   }
