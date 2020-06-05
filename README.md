@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/cronitorio/cronitor-js.svg?branch=master)](https://travis-ci.org/cronitorio/cronitor-js) [![codecov](https://codecov.io/gh/cronitorio/cronitor-js/branch/2.0.0/graph/badge.svg)](https://codecov.io/gh/cronitorio/cronitor-js)
 
-Cronitor provides continuous monitoring for cron jobs, daemons, data pipelines, queue workers, and anything else that anything that can send or receive an HTTP request.
+Cronitor provides continuous monitoring for cron jobs, daemons, data pipelines, queue workers, and anything else that can send or receive an HTTP request.
 
 If you are unfamiliar with Cronitor, read our [Cron Monitoring](https://cronitor.io/docs/cron-job-monitoring) or [Heartbeat Monitoring](https://cronitor.io/docs/heartbeat-monitoring) guide.
 
