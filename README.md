@@ -57,7 +57,7 @@ ping.complete({
 ## <a name="heartbeat">Heartbeat
 A Heartbeat object is a special integration for daemons, control loops, or other long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. The interval at which the `tick` counts are flushed to Cronitor is configurable (default 60 seconds).
 
-The following example uses [sqs-consumer](https://github.com/bbc/sqs-consumer) to demonstrate using heartbeat to demonstrate
+The following example uses [sqs-consumer](https://github.com/bbc/sqs-consumer) to demonstrate using heartbeat to monitor a continuously running background job - in this case, a queue worker.
 
 ```javascript
 const { Consumer } = require('sqs-consumer');
@@ -69,15 +69,28 @@ const app = Consumer.create({
   queueUrl: 'https://sqs.eu-west-1.amazonaws.com/account-id/queue-name',
   handleMessage: async (message) => {
     // do some work with `message`
-    heartbeat.tick();
   }
 });
 
+// Consumer is an event emitter and will emit one of the below events each time it is called.
+
+// en error occurred while interacting with SQS
 app.on('error', (err) => {
-  heartbeat.error({message: err.message}); // report an error occurred
+  heartbeat.error({message: err.message});
 });
 
-app.on('empty', () => heartbeat.tick()); // the queue is empty, but we're still ticking!
+app.on('processing_error', (err) => {
+    // an error occured when trying to handle the message (in handleMessage function)
+    heartbeat.error({message: err.message});
+});
+
+app.on('processed_message', () => {
+    heartbeat.tick(); // a message was processed
+})
+
+app.on('empty', () =>{
+    heartbeat.tick(); // the queue is empty, but we're still ticking!
+});
 
 app.start();
 ```
@@ -166,18 +179,8 @@ monitor.update('d3x0c1', {name: 'Midnight UTC DB Backup'}).then((resp) => {
     console.log(resp.name) // 'Midnight UTC DB Backup'
 })
 
-monitor.pause('d3x0c1', 5)
-monitor.unpause('d3x0c1')
-
 // delete a monitor
 monitor.delete('d3x0c1')
-
-// does not require a code
-monitor.filter({page: 2}).then((resp) => {
-    console.log(resp.total_monitor_count) // 83
-    console.log(resp.page) // 2
-    console.log(resp.monitors.length) // 33
-})
 ```
 
 

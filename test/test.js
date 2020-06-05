@@ -10,34 +10,33 @@ sinonStubPromise(sinon)
 chai.use(sinonChai)
 
 const { Monitor, Ping, Heartbeat } = require('../index')
-const pingApiKey = '12345'
-const fakeId = 'd3x0c1'
-const baseUrl = 'https://cronitor.link'
-const apiKey = '1337hax0r'
-
-const newMonitorFixture = {
-  "name": "Testing_Cronitor_Client",
-  "notifications": {
-      "phones": [],
-      "webhooks": [],
-      "emails": [
-          "support@example.com"
-      ]
-  },
-  "rules": [
-      {
-          "rule_type": "not_run_in",
-          "duration": 1,
-          "time_unit": "minutes"
+  , pingApiKey = '12345'
+  , fakeId = 'd3x0c1'
+  , baseUrl = 'https://cronitor.link'
+  , apiKey = '1337hax0r'
+  , newMonitorFixture = {
+      "name": "Testing_Cronitor_Client",
+      "notifications": {
+          "phones": [],
+          "webhooks": [],
+          "emails": [
+              "support@example.com"
+          ]
       },
-      {
-          "rule_type": "ran_longer_than",
-          "duration": 1,
-          "time_unit": "minutes"
-      }
-  ],
-  "note": "Created by monitor.io node.js client: version 2"
-}
+      "rules": [
+          {
+              "rule_type": "not_run_in",
+              "duration": 1,
+              "time_unit": "minutes"
+          },
+          {
+              "rule_type": "ran_longer_than",
+              "duration": 1,
+              "time_unit": "minutes"
+          }
+      ],
+      "note": "Created by monitor.io node.js client: version 2"
+    }
 
 describe('Ping API', function() {
   const ping = new Ping({monitorId: fakeId})
