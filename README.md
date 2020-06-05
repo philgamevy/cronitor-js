@@ -7,15 +7,15 @@ Cronitor provides continuous monitoring for cron jobs, daemons, data pipelines, 
 If you are unfamiliar with Cronitor, read our [Cron Monitoring](https://cronitor.io/docs/cron-job-monitoring) or [Heartbeat Monitoring](https://cronitor.io/docs/heartbeat-monitoring) guide.
 
 Cronitor-JS provides three separate modules:
-- [Ping](#ping) - Standard integration with Cronitor.
+- [Ping](#ping) - Client for the [Ping API](https://cronitor.io/docs/ping-api). Integrate your monitor.
 - [Heartbeat](#heartbeat) - A background integration for daemons or long running jobs.
-- [Monitor](#monitor) - Retrieve monitor information, create/modify monitors, pause alerting for a monitor.
+- [Monitor](#monitor) - Create/read/update/delete monitors, retrieve status information for a monitor (or set of monitors), and pause alerting on a monitor.
 
 ## Installation
 `npm install cronitor`
 
 ## <a name="ping"></a>Ping
-Use a Ping object to integrate your job with Cronitor. The [Ping API Reference](https://cronitor.io/docs/ping-api) has further information about the API Ping uses.
+Use a Ping object to add a monitor into your job, script, etc.
 
 The example below uses [NodeCron](https://github.com/node-cron/node-cron) to demonstrate how to use Ping.
 
@@ -25,10 +25,10 @@ const { Ping } = require('cronitor')
 const WelcomeEmail = require('./welcome-email')
 
 // a job running every 5 minutes
-Cron.schedule('*/5 * * * *', () => {
+Cron.schedule('*/5 * * * *', async () => {
     ping = new Ping('d3x0c1') // create new object with monitor's unique id/code
     ping.run() // the job has started
-    WelcomeEmail.send()
+    await WelcomeEmail.send()
     ping.complete() // the job finished successfully
 });
 
@@ -50,12 +50,12 @@ const ping = new Ping({monitorId: 'd3x0c1', apiKey: 'xxxxxx'})
 ping.complete({
     env: '', // the environment this is running in (development, staging, production)
     host: '' // the hostname of machine running this command
-    message: '', // optional message that will be displayed in alerts and on your dashboard.
+    message: '', // optional message that will be displayed in alerts as well as monitor activity panel on your dashboard.
     duration: '' // override cronitor's duration calculation with your own recorded value. ignored on non `complete` calls
 })
 ```
 ## <a name="heartbeat">Heartbeat
-A Heartbeat object is a special integration for daemons, control loops, or other long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. The interval at which the `tick` counts are flushed to Cronitor is configurable (default 60 seconds).
+A Heartbeat object is a special integration for daemons, control loops, or long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. Unlike using the Ping object, a Heartbeat object will store a tick count internally and send them in batch to Cronitor. The interval at which these are flushed to Cronitor is configurable using `intervalSeconds` (default 60).
 
 The following example uses [sqs-consumer](https://github.com/bbc/sqs-consumer) to demonstrate using heartbeat to monitor a continuously running background job - in this case, a queue worker.
 
@@ -75,22 +75,26 @@ const app = Consumer.create({
 
 // Consumer is an event emitter and will emit one of the below events each time it is called.
 
-// en error occurred while interacting with SQS
-app.on('error', (err) => {
-  heartbeat.error({message: err.message});
-});
-
-app.on('processing_error', (err) => {
-    // an error occured when trying to handle the message (in handleMessage function)
-    heartbeat.error({message: err.message});
-});
-
+// a message was processed
 app.on('processed_message', () => {
-    heartbeat.tick(); // a message was processed
+    heartbeat.tick();
 })
 
 app.on('empty', () =>{
     heartbeat.tick(); // the queue is empty, but we're still ticking!
+});
+
+// an error occurred connectiong to SQS
+app.on('error', (err) => {
+    // .error is a special "tick" method for reporting errors.
+    // Use it to tell Cronitor your program is still running, but encountering errors.
+    // Error rate alert thresholds are configurable.
+  heartbeat.error({message: err.message});
+});
+
+// an error occured when trying to handle the message (in handleMessage function)
+app.on('processing_error', (err) => {
+    heartbeat.error({message: err.message});
 });
 
 app.start();
@@ -99,6 +103,7 @@ app.start();
 ## <a name="monitor"></a>Monitor
 
 The Monitor object provides a wrapper around our [Monitor API](https:/cronitor.io/docs/monitor-api). Use this object to:
+
     - Retrieve status/configuration information about a monitor/set of monitors.
     - Modify or delete an existing monitor.
     - Pause/unpause alerting of an existing monitor.
