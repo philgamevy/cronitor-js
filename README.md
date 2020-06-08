@@ -7,8 +7,8 @@ Cronitor provides continuous monitoring for cron jobs, daemons, data pipelines, 
 If you are unfamiliar with Cronitor, read our [Cron Monitoring](https://cronitor.io/docs/cron-job-monitoring) or [Heartbeat Monitoring](https://cronitor.io/docs/heartbeat-monitoring) guide.
 
 Cronitor-JS provides three separate modules:
-- [Ping](#ping) - Client for the [Ping API](https://cronitor.io/docs/ping-api). Integrate your monitor.
-- [Heartbeat](#heartbeat) - A background integration for daemons or long running jobs.
+- [Ping](#ping) - Client for the [Ping API](https://cronitor.io/docs/ping-api). Integrate Cronitor with your job, script, etc.
+- [Heartbeat](#heartbeat) - A background integration designed for daemons or long running jobs.
 - [Monitor](#monitor) - Create/read/update/delete monitors, retrieve status information for a monitor (or set of monitors), and pause alerting on a monitor.
 
 ## Installation
