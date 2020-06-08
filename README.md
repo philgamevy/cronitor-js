@@ -21,41 +21,45 @@ The example below uses [NodeCron](https://github.com/node-cron/node-cron) to dem
 
 ```javascript
 const Cron = require('node-cron');
-const { Ping } = require('cronitor')
-const WelcomeEmail = require('./welcome-email')
+const { Ping } = require('cronitor');
+const WelcomeEmail = require('./welcome-email');
 
 // a job running every 5 minutes
 Cron.schedule('*/5 * * * *', async () => {
-    ping = new Ping('d3x0c1') // create new object with monitor's unique id/code
-    ping.run() // the job has started
-    await WelcomeEmail.send()
-    ping.complete() // the job finished successfully
+    ping = new Ping('d3x0c1'); // create new object with monitor's unique id/code
+    ping.run(); // the job has started
+    try {
+        await WelcomeEmail.send();
+        ping.complete(); // the job finished successfully
+    } catch(err) {
+        ping.fail(err); // ping fail and pass the error message
+    }
 });
 
-
-//
-ping.run() // the job has started running
-ping.complete() // the job has completed successfully
-ping.fail() // the job has failed
-ping.ok() // reset a failing job to a passing state.
+// ping
+ping.run(); // the job has started running
+ping.complete(); // the job has completed successfully
+ping.fail(); // the job has failed
+ping.ok(); // reset a failing job to a passing state.
+ping.tick(); // use for heartbeat monitoring. see heartbeat example below.
 ```
 
 ### Options
 
 ```javascript
 // if authenticated pings are enabled, add your apiKey when creating a Ping object
-const ping = new Ping({monitorId: 'd3x0c1', apiKey: 'xxxxxx'})
+const ping = new Ping({monitorId: 'd3x0c1', apiKey: 'xxxxxx'});
 
-// optional params can be passed as an object the following params are allowed
+// optional params can be passed as an object the following params are allowed. e.g.
 ping.complete({
     env: '', // the environment this is running in (development, staging, production)
     host: '' // the hostname of machine running this command
     message: '', // optional message that will be displayed in alerts as well as monitor activity panel on your dashboard.
     duration: '' // override cronitor's duration calculation with your own recorded value. ignored on non `complete` calls
-})
+});
 ```
 ## <a name="heartbeat">Heartbeat
-A Heartbeat object is a special integration for daemons, control loops, or long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. Unlike using the Ping object, a Heartbeat object will store a tick count internally and send them in batch to Cronitor. The interval at which these are flushed to Cronitor is configurable using `intervalSeconds` (default 60).
+A Heartbeat object is an async integration for daemons, control loops, or long running processes. It provides a single `tick` method that is used to indicate that a process/job is running. Unlike using the Ping object, a Heartbeat object will store a tick count internally and send them in batch to Cronitor. The interval at which these are flushed to Cronitor is configurable using `intervalSeconds` (default 60).
 
 The following example uses [sqs-consumer](https://github.com/bbc/sqs-consumer) to demonstrate using heartbeat to monitor a continuously running background job - in this case, a queue worker.
 
@@ -78,23 +82,23 @@ const app = Consumer.create({
 // a message was processed
 app.on('processed_message', () => {
     heartbeat.tick();
-})
+});
 
 app.on('empty', () =>{
-    heartbeat.tick(); // the queue is empty, but we're still ticking!
+    heartbeat.tick(0); // the queue is empty, but we're still ticking!
 });
 
 // an error occurred connectiong to SQS
 app.on('error', (err) => {
-    // .error is a special "tick" method for reporting errors.
+    // .error is a special "tick" method for reporting error counts.
     // Use it to tell Cronitor your program is still running, but encountering errors.
     // Error rate alert thresholds are configurable.
-  heartbeat.error({message: err.message});
+  heartbeat.error();
 });
 
 // an error occured when trying to handle the message (in handleMessage function)
 app.on('processing_error', (err) => {
-    heartbeat.error({message: err.message});
+    heartbeat.error();
 });
 
 app.start();
@@ -112,10 +116,10 @@ The Monitor object provides a wrapper around our [Monitor API](https:/cronitor.i
 ### Create a Monitor
 
 ```javascript
-const { Monitor } = require('../index')
+const { Monitor } = require('../index');
 
 // get your apiKey at https://cronitor.io/settings#account
-const monitor = new Monitor({apiKey: 'xxxxxx'})
+const monitor = new Monitor({apiKey: 'xxxxxx'});
 
 // sugar syntax for creating a new cron monitor
 monitor.createCron({
@@ -123,14 +127,20 @@ monitor.createCron({
     expression: '0 0 * * *',
     notificationLists: ['devops-pagerduty'] // optional. account default will be used if omitted.
 }).then((resp) => {
-    console.log(resp.name) // 'Nightly DB Backup',
-}
+    console.log(resp.name); // 'Nightly DB Backup',
+});
 
 // sugar syntax for creating a new heartbeat monitor
 monitor.createHeartbeat({
     name: 'Queue Worker Heartbeat',
     every: [60, 'seconds'] // accepts 'seconds', 'minutes', 'hours', 'days'
-})
+});
+
+// sugar syntax for creating a new heartbeat monitor
+monitor.createHeartbeat({
+    name: 'Daily Reset Test',
+    at: '18:30' // HH:MM format
+});
 
 // create any type of monitor. this is equivalent to the first example above.
 // pass an object that adheres to the Monitor API specification (https://cronitor.io/docs/monitor-api).
@@ -146,47 +156,46 @@ monitor.create({
     notifications: {
         templates: ['devops-pagerduty']
     }
-})
-
+});
 ```
 
 ### Retrieve Monitor(s)
 
 ```javascript
-const { Monitor } = require('cronitor')
-const monitor = new Monitor({apiKey: 'xxxxxx'})
+const { Monitor } = require('cronitor');
+const monitor = new Monitor({apiKey: 'xxxxxx'});
 monitor.get('d3x01').then((resp) => {
-    console.log(resp.name) // 'Midnight UTC DB Backup'
-})
+    console.log(resp.name); // 'Midnight UTC DB Backup'
+});
 
 // retrieve a page of monitors (50 monitors per page)
 monitor.filter({page: 2}).then((resp) => {
-    console.log(resp.total_monitor_count) // 83
-    console.log(resp.page) // 2
-    console.log(resp.monitors.length) // 33
-})
+    console.log(resp.total_monitor_count); // 83
+    console.log(resp.page); // 2
+    console.log(resp.monitors.length); // 33
+});
 ```
 
 ### Pause Alerting
 ```javascript
-const { Monitor } = require('cronitor')
-const monitor = new Monitor({apiKey: 'xxxxxx'})
-monitor.pause('d3x0c1', 5) // paused for 5 hours
-monitor.unpause('d3x0c1')
+const { Monitor } = require('cronitor');
+const monitor = new Monitor({apiKey: 'xxxxxx'});
+monitor.pause('d3x0c1', 5); // paused for 5 hours
+monitor.unpause('d3x0c1');
 ```
 
 ### Update or Delete
 ```javascript
-const { Monitor } = require('cronitor')
-const monitor = new Monitor({apiKey: 'xxxxxx'})
+const { Monitor } = require('cronitor');
+const monitor = new Monitor({apiKey: 'xxxxxx'});
 
 // Update existing attributes on a monitor
 monitor.update('d3x0c1', {name: 'Midnight UTC DB Backup'}).then((resp) => {
-    console.log(resp.name) // 'Midnight UTC DB Backup'
-})
+    console.log(resp.name); // 'Midnight UTC DB Backup'
+});
 
 // delete a monitor
-monitor.delete('d3x0c1')
+monitor.delete('d3x0c1');
 ```
 
 
