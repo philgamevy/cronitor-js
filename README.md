@@ -81,6 +81,7 @@ const app = Consumer.create({
 
 // a message was processed
 app.on('processed_message', () => {
+    // increment the tick counter, no other side effects.
     heartbeat.tick();
 });
 
