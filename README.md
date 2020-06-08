@@ -84,8 +84,10 @@ app.on('processed_message', () => {
     heartbeat.tick();
 });
 
-app.on('empty', () =>{
-    heartbeat.tick(0); // the queue is empty, but we're still ticking!
+ // the queue is empty
+app.on('empty', () => {
+    // record a tick and also record that no message was processed
+    heartbeat.tick(0);
 });
 
 // an error occurred connectiong to SQS
